@@ -8,6 +8,7 @@ This package provides a wrapper for logging around IO object which implements `i
 Simple example of usage: logging traffic of TCP stream into console.
 """
 keywords = ["io", "logging"]
+license = "MIT or Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
