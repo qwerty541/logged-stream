@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
 description = """
-This package provides a wrapper for logging around IO object which implements `io::Read` and `io::Write` traits or their async analogues from tokio.
-Simple example of usage: logging traffic of TCP stream into console.
+This Rust library provides a wrapper for structures which implements `std::io::Read` and `std::io::Write` traits or their asynchronous analogues
+from tokio to enable logging of all read and write operations, errors and drop. Simple example of usage: logging traffic of TCP stream into console. 
 """
 keywords = ["io", "logging"]
 license = "MIT or Apache-2.0"
