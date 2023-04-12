@@ -2,6 +2,12 @@
 name = "logged-stream"
 version = "0.1.0"
 edition = "2021"
+authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
+description = """
+This package provides a wrapper for logging around IO object which implements `io::Read` and `io::Write` traits or their async analogues from tokio.
+Simple example of usage: logging traffic of TCP stream into console.
+"""
+keywords = ["io", "logging"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
