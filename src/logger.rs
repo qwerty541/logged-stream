@@ -1,12 +1,8 @@
 use crate::record::Record;
-use chrono::DateTime;
-use chrono::Utc;
 use std::collections;
-use std::convert::Into;
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::mpsc;
-use std::time;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Trait
@@ -38,13 +34,16 @@ impl ConsoleLogger {
 
 impl Logger for ConsoleLogger {
     fn log(&mut self, record: Record) {
-        let time = <time::SystemTime as Into<DateTime<Utc>>>::into(record.time);
-        let fmt_time = time.format("%F %T").to_string();
-        let fmt_time = format!("{}.{:06.0}", fmt_time, time.timestamp_subsec_micros());
+        let fmt_datatime = record.time.format("%F %T").to_string();
+        let fmt_datatime_with_micros = format!(
+            "{}.{:06.0}",
+            fmt_datatime,
+            record.time.timestamp_subsec_micros()
+        );
         log::log!(
             self.level,
             "{} {} {}",
-            fmt_time,
+            fmt_datatime_with_micros,
             record.kind,
             record.message
         )

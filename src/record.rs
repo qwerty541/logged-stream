@@ -1,6 +1,7 @@
+use chrono::DateTime;
+use chrono::Utc;
 use std::convert::From;
 use std::fmt;
-use std::time;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Record
@@ -10,7 +11,7 @@ use std::time;
 pub struct Record {
     pub kind: RecordKind,
     pub message: String,
-    pub time: time::SystemTime,
+    pub time: DateTime<Utc>,
 }
 
 impl Record {
@@ -18,7 +19,7 @@ impl Record {
         Self {
             kind,
             message,
-            time: time::SystemTime::now(),
+            time: Utc::now(),
         }
     }
 }
