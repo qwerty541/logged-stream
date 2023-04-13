@@ -17,8 +17,12 @@ readme = "./README.md"
 [dependencies]
 chrono = "0.4.24"
 log = "0.4.17"
-tokio = { version = "1.27.0", features = ["io-util"] }
+tokio = { version = "1.27.0", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
 env_logger = "0.10.0"
-tokio = { version = "1.27.0", features = ["macros", "net", "rt-multi-thread"] }
+tokio = { version = "1.27.0", features = [
+    "macros",
+    "net",
+    "rt-multi-thread"
+], default-features = false }
