@@ -12,6 +12,7 @@ license = "MIT or Apache-2.0"
 repository = "https://github.com/qwerty541/logged-stream"
 documentation = "https://docs.rs/logged-stream"
 readme = "./README.md"
+rust-version = "1.60.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
