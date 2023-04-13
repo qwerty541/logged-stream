@@ -8,8 +8,7 @@ This Rust library provides a wrapper for structures which implements `std::io::R
 from tokio to enable logging of all read and write operations, errors and drop. Simple example of usage: logging traffic of TCP stream into console. 
 """
 keywords = ["io", "logging"]
-license = "MIT"
-license-file = "./LICENSE-MIT"
+license = "MIT or Apache-2.0"
 repository = "https://github.com/qwerty541/logged-stream"
 readme = "./README.md"
 
