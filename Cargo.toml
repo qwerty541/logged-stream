@@ -17,6 +17,7 @@ rust-version = "1.60.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 chrono = "0.4.24"
+itertools = "0.10.5"
 log = "0.4.17"
 tokio = { version = "1.27.0", features = ["io-util"], default-features = false }
 

@@ -4,6 +4,7 @@ use crate::record::Record;
 use crate::record::RecordKind;
 use crate::ChannelLogger;
 use crate::MemoryStorageLogger;
+use crate::RecordFilter;
 use std::collections;
 use std::convert::From;
 use std::fmt;
@@ -15,23 +16,34 @@ use std::task::Context;
 use std::task::Poll;
 use tokio::io as tokio_io;
 
-pub struct LoggedStream<S: 'static, F: 'static, L: Logger + 'static> {
+pub struct LoggedStream<
+    S: 'static,
+    Formatter: 'static,
+    Filter: RecordFilter + 'static,
+    L: Logger + 'static,
+> {
     inner_stream: S,
-    formatter: F,
+    formatter: Formatter,
+    filter: Filter,
     logger: L,
 }
 
-impl<S: 'static, F: 'static, L: Logger + 'static> LoggedStream<S, F, L> {
-    pub fn new(stream: S, formatter: F, logger: L) -> Self {
+impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger + 'static>
+    LoggedStream<S, Formatter, Filter, L>
+{
+    pub fn new(stream: S, formatter: Formatter, filter: Filter, logger: L) -> Self {
         Self {
             inner_stream: stream,
             formatter,
+            filter,
             logger,
         }
     }
 }
 
-impl<S: 'static, F: 'static> LoggedStream<S, F, MemoryStorageLogger> {
+impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
+    LoggedStream<S, Formatter, Filter, MemoryStorageLogger>
+{
     pub fn get_log_records(&self) -> collections::VecDeque<Record> {
         self.logger.get_log_records()
     }
@@ -41,7 +53,9 @@ impl<S: 'static, F: 'static> LoggedStream<S, F, MemoryStorageLogger> {
     }
 }
 
-impl<S: 'static, F: 'static> LoggedStream<S, F, ChannelLogger> {
+impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
+    LoggedStream<S, Formatter, Filter, ChannelLogger>
+{
     pub fn take_receiver(&mut self) -> Option<mpsc::Receiver<Record>> {
         self.logger.take_receiver()
     }
@@ -51,29 +65,43 @@ impl<S: 'static, F: 'static> LoggedStream<S, F, ChannelLogger> {
     }
 }
 
-impl<S: fmt::Debug + 'static, F: fmt::Debug + 'static, L: Logger + fmt::Debug + 'static> fmt::Debug
-    for LoggedStream<S, F, L>
+impl<
+        S: fmt::Debug + 'static,
+        Formatter: fmt::Debug + 'static,
+        Filter: RecordFilter + fmt::Debug + 'static,
+        L: Logger + fmt::Debug + 'static,
+    > fmt::Debug for LoggedStream<S, Formatter, Filter, L>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LoggedStream")
             .field("inner_stream", &self.inner_stream)
             .field("formatter", &self.formatter)
+            .field("filter", &self.filter)
             .field("logger", &self.logger)
             .finish()
     }
 }
 
-impl<S: io::Read + 'static, F: BufferFormatter + 'static, L: Logger + 'static> io::Read
-    for LoggedStream<S, F, L>
+impl<
+        S: io::Read + 'static,
+        Formatter: BufferFormatter + 'static,
+        Filter: RecordFilter + 'static,
+        L: Logger + 'static,
+    > io::Read for LoggedStream<S, Formatter, Filter, L>
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let result = self.inner_stream.read(buf);
 
         match &result {
-            Ok(length) => self.logger.log(Record::new(
-                RecordKind::Read,
-                self.formatter.format_buffer(&buf[0..*length]),
-            )),
+            Ok(length) => {
+                let record = Record::new(
+                    RecordKind::Read,
+                    self.formatter.format_buffer(&buf[0..*length]),
+                );
+                if self.filter.check(&record) {
+                    self.logger.log(record);
+                }
+            }
             Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {}
             Err(e) => self.logger.log(Record::new(
                 RecordKind::Error,
@@ -87,9 +115,10 @@ impl<S: io::Read + 'static, F: BufferFormatter + 'static, L: Logger + 'static> i
 
 impl<
         S: tokio_io::AsyncRead + Unpin + 'static,
-        F: BufferFormatter + Unpin + 'static,
+        Formatter: BufferFormatter + Unpin + 'static,
+        Filter: RecordFilter + Unpin + 'static,
         L: Logger + Unpin + 'static,
-    > tokio_io::AsyncRead for LoggedStream<S, F, L>
+    > tokio_io::AsyncRead for LoggedStream<S, Formatter, Filter, L>
 {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -104,12 +133,17 @@ impl<
 
         match &result {
             Poll::Ready(Ok(())) if diff == 0 => {}
-            Poll::Ready(Ok(())) => mut_self.logger.log(Record::new(
-                RecordKind::Read,
-                mut_self
-                    .formatter
-                    .format_buffer(&(buf.filled())[length_before_read..length_after_read]),
-            )),
+            Poll::Ready(Ok(())) => {
+                let record = Record::new(
+                    RecordKind::Read,
+                    mut_self
+                        .formatter
+                        .format_buffer(&(buf.filled())[length_before_read..length_after_read]),
+                );
+                if mut_self.filter.check(&record) {
+                    mut_self.logger.log(record);
+                }
+            }
             Poll::Ready(Err(e)) => mut_self.logger.log(Record::new(
                 RecordKind::Error,
                 format!("Error during async read: {e}"),
@@ -121,17 +155,26 @@ impl<
     }
 }
 
-impl<S: io::Write + 'static, F: BufferFormatter + 'static, L: Logger + 'static> io::Write
-    for LoggedStream<S, F, L>
+impl<
+        S: io::Write + 'static,
+        Formatter: BufferFormatter + 'static,
+        Filter: RecordFilter + 'static,
+        L: Logger + 'static,
+    > io::Write for LoggedStream<S, Formatter, Filter, L>
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let result = self.inner_stream.write(buf);
 
         match &result {
-            Ok(length) => self.logger.log(Record::new(
-                RecordKind::Write,
-                self.formatter.format_buffer(&buf[0..*length]),
-            )),
+            Ok(length) => {
+                let record = Record::new(
+                    RecordKind::Write,
+                    self.formatter.format_buffer(&buf[0..*length]),
+                );
+                if self.filter.check(&record) {
+                    self.logger.log(record);
+                }
+            }
             Err(e)
                 if matches!(
                     e.kind(),
@@ -153,9 +196,10 @@ impl<S: io::Write + 'static, F: BufferFormatter + 'static, L: Logger + 'static> 
 
 impl<
         S: tokio_io::AsyncWrite + Unpin + 'static,
-        F: BufferFormatter + Unpin + 'static,
+        Formatter: BufferFormatter + Unpin + 'static,
+        Filter: RecordFilter + Unpin + 'static,
         L: Logger + Unpin + 'static,
-    > tokio_io::AsyncWrite for LoggedStream<S, F, L>
+    > tokio_io::AsyncWrite for LoggedStream<S, Formatter, Filter, L>
 {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -165,10 +209,15 @@ impl<
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_write(cx, buf);
         match &result {
-            Poll::Ready(Ok(length)) => mut_self.logger.log(Record::new(
-                RecordKind::Write,
-                mut_self.formatter.format_buffer(&buf[0..*length]),
-            )),
+            Poll::Ready(Ok(length)) => {
+                let record = Record::new(
+                    RecordKind::Write,
+                    mut_self.formatter.format_buffer(&buf[0..*length]),
+                );
+                if mut_self.filter.check(&record) {
+                    mut_self.logger.log(record);
+                }
+            }
             Poll::Ready(Err(e)) => mut_self.logger.log(Record::new(
                 RecordKind::Error,
                 format!("Error during async write: {e}"),
@@ -185,19 +234,27 @@ impl<
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_shutdown(cx);
-        mut_self.logger.log(Record::new(
+        let record = Record::new(
             RecordKind::Shutdown,
             String::from("Connection closed by request."),
-        ));
+        );
+        if mut_self.filter.check(&record) {
+            mut_self.logger.log(record);
+        }
         result
     }
 }
 
-impl<S: 'static, F: 'static, L: Logger + 'static> Drop for LoggedStream<S, F, L> {
+impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger + 'static> Drop
+    for LoggedStream<S, Formatter, Filter, L>
+{
     fn drop(&mut self) {
-        self.logger.log(Record::new(
+        let record = Record::new(
             RecordKind::Drop,
             String::from("Connection socket deallocated."),
-        ))
+        );
+        if self.filter.check(&record) {
+            self.logger.log(record);
+        }
     }
 }

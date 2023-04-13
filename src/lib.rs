@@ -1,4 +1,5 @@
 mod buffer_formatter;
+mod filter;
 mod logger;
 mod record;
 mod stream;
@@ -8,6 +9,9 @@ pub use buffer_formatter::BufferFormatter;
 pub use buffer_formatter::DecimalFormatter;
 pub use buffer_formatter::HexDecimalFormatter;
 pub use buffer_formatter::OctalFormatter;
+pub use filter::DefaultFilter;
+pub use filter::RecordFilter;
+pub use filter::RecordKindFilter;
 pub use logger::ChannelLogger;
 pub use logger::ConsoleLogger;
 pub use logger::Logger;

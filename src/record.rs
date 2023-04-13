@@ -7,7 +7,7 @@ use std::fmt;
 /// Record
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Record {
     pub kind: RecordKind,
     pub message: String,
@@ -28,7 +28,7 @@ impl Record {
 /// RecordKind
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum RecordKind {
     Open,
     Read,
