@@ -236,7 +236,7 @@ impl<
         let result = Pin::new(&mut mut_self.inner_stream).poll_shutdown(cx);
         let record = Record::new(
             RecordKind::Shutdown,
-            String::from("Connection closed by request."),
+            String::from("Writer shutdown request."),
         );
         if mut_self.filter.check(&record) {
             mut_self.logger.log(record);
@@ -249,10 +249,7 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
     for LoggedStream<S, Formatter, Filter, L>
 {
     fn drop(&mut self) {
-        let record = Record::new(
-            RecordKind::Drop,
-            String::from("Connection socket deallocated."),
-        );
+        let record = Record::new(RecordKind::Drop, String::from("Deallocated."));
         if self.filter.check(&record) {
             self.logger.log(record);
         }

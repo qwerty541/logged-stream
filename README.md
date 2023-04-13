@@ -82,7 +82,7 @@ Output to console:
 2023-04-12 20:06:04.756514 < 09:0a:0b:0c
 2023-04-12 20:06:04.756593 > 01:02:03:04
 2023-04-12 20:06:04.756820 < 01:02:03:04
-2023-04-12 20:06:04.756878 x Connection socket deallocated.
+2023-04-12 20:06:04.756878 x Deallocated.
 ```
 
 Full version of this example can be found [there](./examples/tcp-stream-console-logger.rs).
