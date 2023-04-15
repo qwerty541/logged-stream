@@ -36,14 +36,14 @@
 
 ## Usage
 
-To use `logged-stream`, add this to your `Cargo.toml`:
+To use `logged-stream`, add the following line to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 logged-stream = "0.2"
 ```
 
-or run this command in your project root:
+or run the following Cargo command in your project directory:
 
 ```
 $ cargo add logged-stream@0.2
