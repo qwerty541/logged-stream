@@ -1,5 +1,20 @@
 # logged-stream
 
+[![Crates.io][crates-badge]][crates-url]
+[![Released API docs][docs-badge]][docs-url]
+![Rust version][rust-version]
+![License][license-badge]
+[![Workflow Status][workflow-badge]][actions-url]
+
+[crates-badge]: https://img.shields.io/crates/v/logged-stream.svg
+[crates-url]: https://crates.io/crates/logged-stream
+[docs-badge]: https://docs.rs/logged-stream/badge.svg
+[docs-url]: https://docs.rs/logged-stream
+[license-badge]: https://img.shields.io/crates/l/logged-stream.svg
+[workflow-badge]: https://github.com/qwerty541/logged-stream/workflows/check/badge.svg
+[actions-url]: https://github.com/qwerty541/logged-stream/actions
+[rust-version]: https://img.shields.io/badge/rust-1.60.0%2B-lightgrey.svg?logo=rust
+
 ## Table of contents
 
 -   [Description](#description)
