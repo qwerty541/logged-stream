@@ -7,6 +7,7 @@ description = "This Rust library provides a wrapper for io objects like `std::ne
 keywords = ["io", "logging", "async", "network"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/qwerty541/logged-stream"
+homepage = "https://github.com/qwerty541/logged-stream"
 documentation = "https://docs.rs/logged-stream"
 readme = "./README.md"
 rust-version = "1.60.0"
