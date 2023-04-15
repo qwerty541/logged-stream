@@ -24,7 +24,10 @@ fn handle_connection(mut stream: net::TcpStream) {
 
 fn main() {
     env::set_var("RUST_LOG", "debug");
-    env_logger::init();
+    env_logger::builder()
+        .default_format()
+        .format_timestamp_millis()
+        .init();
 
     let listener = net::TcpListener::bind("127.0.0.1:8080").unwrap();
 

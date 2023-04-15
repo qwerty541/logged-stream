@@ -1,7 +1,6 @@
 use crate::record::Record;
 use std::collections;
 use std::str::FromStr;
-use std::string::ToString;
 use std::sync::mpsc;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,19 +33,7 @@ impl ConsoleLogger {
 
 impl Logger for ConsoleLogger {
     fn log(&mut self, record: Record) {
-        let fmt_datatime = record.time.format("%F %T").to_string();
-        let fmt_datatime_with_micros = format!(
-            "{}.{:06.0}",
-            fmt_datatime,
-            record.time.timestamp_subsec_micros()
-        );
-        log::log!(
-            self.level,
-            "{} {} {}",
-            fmt_datatime_with_micros,
-            record.kind,
-            record.message
-        )
+        log::log!(self.level, "{} {}", record.kind, record.message)
     }
 }
 
