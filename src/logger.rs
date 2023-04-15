@@ -1,4 +1,5 @@
 use crate::record::Record;
+use crate::RecordKind;
 use std::collections;
 use std::str::FromStr;
 use std::sync::mpsc;
@@ -33,7 +34,11 @@ impl ConsoleLogger {
 
 impl Logger for ConsoleLogger {
     fn log(&mut self, record: Record) {
-        log::log!(self.level, "{} {}", record.kind, record.message)
+        let level = match record.kind {
+            RecordKind::Error => log::Level::Error,
+            _ => self.level,
+        };
+        log::log!(level, "{} {}", record.kind, record.message)
     }
 }
 
