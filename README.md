@@ -103,6 +103,8 @@ Output to console:
 
 Full version of this example can be found [there](./examples/tcp-stream-console-logger.rs).
 
+Same example, but rewritten using asynchronous API, can be found [there](./examples/tokio-tcp-stream-console-logger.rs).
+
 ## License
 
 Licensed under either of
