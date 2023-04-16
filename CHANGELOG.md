@@ -1,3 +1,5 @@
+## v0.2.1 (17.04.2023)
+
 -   Exclude several redundant files and folders from published package to decrease its size.
 -   `ConsoleLogger` now does not include timestamp into log string, it can be done by `env_logger`.
 -   `ConsoleLogger` now ignores provided level when receive error kind log records.

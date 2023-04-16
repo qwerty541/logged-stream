@@ -1,6 +1,6 @@
 [package]
 name = "logged-stream"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
 description = "This Rust library provides a wrapper for io objects like `std::net::TcpStream` to enable logging of all read and write operations, errors and drop."
