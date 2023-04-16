@@ -1,3 +1,8 @@
+-   Exclude several redundant files and folders from published package to decrease its size.
+-   `ConsoleLogger` now does not include timestamp into log string, it can be done by `env_logger`.
+-   `ConsoleLogger` now ignores provided level when receive error kind log records.
+-   Several README improvements.
+
 ## v0.2.0 (14.04.2023)
 
 -   Extend `LoggedStream` structure with fourth part which will be responsible for log records filter.
