@@ -1,3 +1,5 @@
+## v0.2.2 (18.04.2023)
+
 -   Add categories into `Cargo.toml` file.
 -   Exclude examples folder from published package to decrease its size.
 -   README improvements.
