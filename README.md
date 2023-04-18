@@ -90,15 +90,15 @@ fn main() {
 Output to console:
 
 ```log
-2023-04-12 20:06:04.756014 > 01:02:03:04
-2023-04-12 20:06:04.756098 < 01:02:03:04
-2023-04-12 20:06:04.756170 > 05:06:07:08
-2023-04-12 20:06:04.756275 < 05:06:07:08
-2023-04-12 20:06:04.756372 > 09:0a:0b:0c
-2023-04-12 20:06:04.756514 < 09:0a:0b:0c
-2023-04-12 20:06:04.756593 > 01:02:03:04
-2023-04-12 20:06:04.756820 < 01:02:03:04
-2023-04-12 20:06:04.756878 x Deallocated.
+[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 01:02:03:04
+[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] < 01:02:03:04
+[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 05:06:07:08
+[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] < 05:06:07:08
+[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 09:0a:0b:0c
+[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] < 09:0a:0b:0c
+[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] > 01:02:03:04
+[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] < 01:02:03:04
+[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] x Deallocated.
 ```
 
 Full version of this example can be found [there](./examples/tcp-stream-console-logger.rs).
