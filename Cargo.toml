@@ -5,6 +5,12 @@ edition = "2021"
 authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
 description = "This Rust library provides a wrapper for io objects like `std::net::TcpStream` to enable logging of all read and write operations, errors and drop."
 keywords = ["io", "logging", "async", "network"]
+categories = [
+    "asynchronous",
+    "data-structures",
+    "development-tools::debugging",
+    "network-programming"
+]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/qwerty541/logged-stream"
 homepage = "https://github.com/qwerty541/logged-stream"
