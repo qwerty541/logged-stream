@@ -19,7 +19,6 @@ readme = "./README.md"
 rust-version = "1.60.0"
 exclude = [".github", ".vscode", "examples", ".gitignore", "rustfmt.toml"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 chrono = "0.4.24"
 itertools = "0.10.5"
