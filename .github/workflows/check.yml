@@ -47,7 +47,7 @@ jobs:
                   toolchain: ${{ matrix.rust }}
 
             - name: Build
-              run: cargo build --lib --examples --tests
+              run: cargo build --all-targets
 
             - name: Tests
               run: cargo test
