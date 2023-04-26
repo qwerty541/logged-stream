@@ -23,6 +23,17 @@ jobs:
               with:
                   components: clippy, rustfmt
 
+            - name: Cache
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo
+                      target
+                  key: ${{ runner.os }}-stable-${{ hashFiles('Cargo.toml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
+                      ${{ runner.os }}-${{ matrix.rust }}-
+
             - name: Run rustfmt
               run: cargo fmt --check
 
@@ -45,6 +56,17 @@ jobs:
               uses: dtolnay/rust-toolchain@master
               with:
                   toolchain: ${{ matrix.rust }}
+
+            - name: Cache
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo
+                      target
+                  key: ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
+                      ${{ runner.os }}-${{ matrix.rust }}-
 
             - name: Build
               run: cargo build --all-targets
