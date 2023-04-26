@@ -1,3 +1,5 @@
+-   Structures which implement `BufferFormatter`, `RecordFilter` and `Logger` traits now required to be `Sized`. This change allows to use the following traits as trait-objects i.e. `Box<dyn BufferFormatter>`.
+
 ## v0.2.2 (18.04.2023)
 
 -   Add categories into `Cargo.toml` file.
