@@ -23,6 +23,14 @@ jobs:
               with:
                   components: clippy, rustfmt
 
+            - name: Cache
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo
+                      target
+                  key: ${{ runner.os }}-stable-${{ hashFiles('Cargo.toml') }}
+
             - name: Run rustfmt
               run: cargo fmt --check
 
