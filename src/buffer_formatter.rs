@@ -6,7 +6,7 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait BufferFormatter: 'static {
+pub trait BufferFormatter: Sized + 'static {
     fn get_separator(&self) -> &'static str;
 
     fn format_byte(byte: &u8) -> String;

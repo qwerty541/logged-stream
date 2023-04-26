@@ -6,7 +6,7 @@ use itertools::Itertools;
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait RecordFilter: 'static {
+pub trait RecordFilter: Sized + 'static {
     fn check(&self, record: &Record) -> bool;
 }
 
