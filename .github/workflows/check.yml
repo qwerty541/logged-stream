@@ -29,6 +29,7 @@ jobs:
                   path: |
                       ~/.cargo
                       target
+                      Cargo.lock
                   key: ${{ runner.os }}-stable-${{ hashFiles('Cargo.toml') }}
                   restore-keys: |
                       ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
@@ -63,6 +64,7 @@ jobs:
                   path: |
                       ~/.cargo
                       target
+                      Cargo.lock
                   key: ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
                   restore-keys: |
                       ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
