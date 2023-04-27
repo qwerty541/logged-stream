@@ -23,11 +23,11 @@ exclude = [".github", ".vscode", "examples", ".gitignore", "rustfmt.toml"]
 chrono = "0.4.24"
 itertools = "0.10.5"
 log = "0.4.17"
-tokio = { version = "1.27.0", features = ["io-util"], default-features = false }
+tokio = { version = "1.28.0", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
 env_logger = "0.10.0"
-tokio = { version = "1.27.0", features = [
+tokio = { version = "1.28.0", features = [
     "macros",
     "net",
     "rt-multi-thread"
