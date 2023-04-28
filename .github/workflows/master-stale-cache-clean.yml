@@ -1,4 +1,4 @@
-name: cache clean
+name: master stale cache clean
 on:
     push:
         branches:
