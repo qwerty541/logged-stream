@@ -1,4 +1,4 @@
-name: cache clean
+name: prs cache clean
 on:
     pull_request:
         types:
