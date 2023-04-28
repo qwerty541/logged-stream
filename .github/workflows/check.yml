@@ -23,18 +23,6 @@ jobs:
               with:
                   components: clippy, rustfmt
 
-            - name: Cache
-              uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo
-                      target
-                      Cargo.lock
-                  key: ${{ runner.os }}-stable-${{ hashFiles('Cargo.toml') }}
-                  restore-keys: |
-                      ${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
-                      ${{ runner.os }}-${{ matrix.rust }}-
-
             - name: Run rustfmt
               run: cargo fmt --check
 
