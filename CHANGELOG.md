@@ -1,3 +1,5 @@
+-   Traits `BufferFormatter`, `RecordFilter` and `Logger` now are object safe and do not require `Sized` implementation. This is the same change as in the previous minor version, but done correctly and covered with tests. Unfortunately I had a misunderstanding of trait object safety.
+
 ## v0.2.3 (26.04.2023)
 
 -   Structures which implement `BufferFormatter`, `RecordFilter` and `Logger` traits now required to be `Sized`. This change allows to use the following traits as trait-objects i.e. `Box<dyn BufferFormatter>`.
