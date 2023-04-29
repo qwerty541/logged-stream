@@ -8,7 +8,7 @@ use std::sync::mpsc;
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait Logger: Sized + 'static {
+pub trait Logger: 'static {
     fn log(&mut self, record: Record);
 }
 
@@ -126,7 +126,11 @@ impl Logger for ChannelLogger {
 mod tests {
     use crate::logger::ChannelLogger;
     use crate::logger::ConsoleLogger;
+    use crate::logger::Logger;
     use crate::logger::MemoryStorageLogger;
+    use crate::record::Record;
+    use crate::record::RecordKind;
+    use std::convert::From;
     use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
@@ -136,5 +140,20 @@ mod tests {
         assert_unpin::<ConsoleLogger>();
         assert_unpin::<ChannelLogger>();
         assert_unpin::<MemoryStorageLogger>();
+    }
+
+    #[test]
+    fn test_trait_object_safety() {
+        // Assert traint object construct.
+        let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
+        let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
+        let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
+
+        let record = Record::new(RecordKind::Open, String::from("test log record"));
+
+        // Assert that trait object methods are dispatchable.
+        console.log(record.clone());
+        memory.log(record.clone());
+        channel.log(record);
     }
 }

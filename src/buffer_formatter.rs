@@ -6,15 +6,15 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait BufferFormatter: Sized + 'static {
+pub trait BufferFormatter: 'static {
     fn get_separator(&self) -> &'static str;
 
-    fn format_byte(byte: &u8) -> String;
+    fn format_byte(&self, byte: &u8) -> String;
 
     fn format_buffer(&self, buffer: &[u8]) -> String {
         buffer
             .iter()
-            .map(Self::format_byte)
+            .map(|b| self.format_byte(b))
             .collect::<Vec<String>>()
             .join(self.get_separator())
     }
@@ -42,7 +42,7 @@ impl BufferFormatter for DecimalFormatter {
         self.separator
     }
 
-    fn format_byte(byte: &u8) -> String {
+    fn format_byte(&self, byte: &u8) -> String {
         format!("{}", byte)
     }
 }
@@ -69,7 +69,7 @@ impl BufferFormatter for OctalFormatter {
         self.separator
     }
 
-    fn format_byte(byte: &u8) -> String {
+    fn format_byte(&self, byte: &u8) -> String {
         format!("{:03o}", byte)
     }
 }
@@ -96,7 +96,7 @@ impl BufferFormatter for HexDecimalFormatter {
         self.separator
     }
 
-    fn format_byte(byte: &u8) -> String {
+    fn format_byte(&self, byte: &u8) -> String {
         format!("{:02x}", byte)
     }
 }
@@ -123,7 +123,7 @@ impl BufferFormatter for BinaryFormatter {
         self.separator
     }
 
-    fn format_byte(byte: &u8) -> String {
+    fn format_byte(&self, byte: &u8) -> String {
         format!("{:08b}", byte)
     }
 }
@@ -135,6 +135,7 @@ impl BufferFormatter for BinaryFormatter {
 #[cfg(test)]
 mod tests {
     use crate::buffer_formatter::BinaryFormatter;
+    use crate::buffer_formatter::BufferFormatter;
     use crate::buffer_formatter::DecimalFormatter;
     use crate::buffer_formatter::HexDecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
@@ -148,5 +149,27 @@ mod tests {
         assert_unpin::<DecimalFormatter>();
         assert_unpin::<HexDecimalFormatter>();
         assert_unpin::<OctalFormatter>();
+    }
+
+    #[test]
+    fn test_trait_object_safety() {
+        // Assert traint object construct.
+        let hexdecimal: Box<dyn BufferFormatter> = Box::new(HexDecimalFormatter::new(None));
+        let decimal: Box<dyn BufferFormatter> = Box::new(DecimalFormatter::new(None));
+        let octal: Box<dyn BufferFormatter> = Box::new(OctalFormatter::new(None));
+        let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
+
+        // Assert that trait object methods are dispatchable.
+        _ = hexdecimal.get_separator();
+        _ = hexdecimal.format_buffer(b"qwertyuiop");
+
+        _ = decimal.get_separator();
+        _ = decimal.format_buffer(b"qwertyuiop");
+
+        _ = octal.get_separator();
+        _ = octal.format_buffer(b"qwertyuiop");
+
+        _ = binary.get_separator();
+        _ = binary.format_buffer(b"qwertyuiop");
     }
 }

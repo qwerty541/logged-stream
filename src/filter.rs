@@ -6,7 +6,7 @@ use itertools::Itertools;
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait RecordFilter: Sized + 'static {
+pub trait RecordFilter: 'static {
     fn check(&self, record: &Record) -> bool;
 }
 
@@ -55,8 +55,8 @@ mod tests {
     use crate::filter::DefaultFilter;
     use crate::filter::RecordFilter;
     use crate::filter::RecordKindFilter;
-    use crate::Record;
-    use crate::RecordKind;
+    use crate::record::Record;
+    use crate::record::RecordKind;
     use std::convert::From;
     use std::marker::Unpin;
 
@@ -102,5 +102,18 @@ mod tests {
             RecordKind::Shutdown,
             String::from("write shutdown request")
         )));
+    }
+
+    #[test]
+    fn test_trait_object_safety() {
+        // Assert traint object construct.
+        let default: Box<dyn RecordFilter> = Box::<DefaultFilter>::default();
+        let record_kind: Box<dyn RecordFilter> = Box::new(RecordKindFilter::new(&[]));
+
+        let record = Record::new(RecordKind::Open, String::from("test log record"));
+
+        // Assert that trait object methods are dispatchable.
+        _ = default.check(&record);
+        _ = record_kind.check(&record);
     }
 }
