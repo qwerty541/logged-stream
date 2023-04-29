@@ -30,9 +30,9 @@ pub struct DecimalFormatter {
 }
 
 impl DecimalFormatter {
-    pub fn new(separator: Option<&'static str>) -> Self {
+    pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
         }
     }
 }
@@ -57,9 +57,9 @@ pub struct OctalFormatter {
 }
 
 impl OctalFormatter {
-    pub fn new(separator: Option<&'static str>) -> Self {
+    pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
         }
     }
 }
@@ -84,9 +84,9 @@ pub struct HexDecimalFormatter {
 }
 
 impl HexDecimalFormatter {
-    pub fn new(separator: Option<&'static str>) -> Self {
+    pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
         }
     }
 }
@@ -111,9 +111,9 @@ pub struct BinaryFormatter {
 }
 
 impl BinaryFormatter {
-    pub fn new(separator: Option<&'static str>) -> Self {
+    pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
         }
     }
 }
