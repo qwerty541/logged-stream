@@ -10,6 +10,12 @@ pub trait RecordFilter: 'static {
     fn check(&self, record: &Record) -> bool;
 }
 
+impl RecordFilter for Box<dyn RecordFilter> {
+    fn check(&self, record: &Record) -> bool {
+        (**self).check(record)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// DefaultFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,6 +26,12 @@ pub struct DefaultFilter;
 impl RecordFilter for DefaultFilter {
     fn check(&self, _record: &Record) -> bool {
         true
+    }
+}
+
+impl RecordFilter for Box<DefaultFilter> {
+    fn check(&self, record: &Record) -> bool {
+        (**self).check(record)
     }
 }
 
@@ -43,6 +55,12 @@ impl RecordKindFilter {
 impl RecordFilter for RecordKindFilter {
     fn check(&self, record: &Record) -> bool {
         self.allowed_kinds.contains(&record.kind)
+    }
+}
+
+impl RecordFilter for Box<RecordKindFilter> {
+    fn check(&self, record: &Record) -> bool {
+        (**self).check(record)
     }
 }
 
@@ -115,5 +133,14 @@ mod tests {
         // Assert that trait object methods are dispatchable.
         _ = default.check(&record);
         _ = record_kind.check(&record);
+    }
+
+    fn assert_record_filter<T: RecordFilter>() {}
+
+    #[test]
+    fn test_box() {
+        assert_record_filter::<Box<dyn RecordFilter>>();
+        assert_record_filter::<Box<RecordKindFilter>>();
+        assert_record_filter::<Box<DefaultFilter>>();
     }
 }

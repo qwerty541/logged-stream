@@ -20,6 +20,16 @@ pub trait BufferFormatter: 'static {
     }
 }
 
+impl BufferFormatter for Box<dyn BufferFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// DecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -44,6 +54,16 @@ impl BufferFormatter for DecimalFormatter {
 
     fn format_byte(&self, byte: &u8) -> String {
         format!("{}", byte)
+    }
+}
+
+impl BufferFormatter for Box<DecimalFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
     }
 }
 
@@ -74,6 +94,16 @@ impl BufferFormatter for OctalFormatter {
     }
 }
 
+impl BufferFormatter for Box<OctalFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// HexDecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,6 +131,16 @@ impl BufferFormatter for HexDecimalFormatter {
     }
 }
 
+impl BufferFormatter for Box<HexDecimalFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// BInaryFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +165,16 @@ impl BufferFormatter for BinaryFormatter {
 
     fn format_byte(&self, byte: &u8) -> String {
         format!("{:08b}", byte)
+    }
+}
+
+impl BufferFormatter for Box<BinaryFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
     }
 }
 
@@ -171,5 +221,16 @@ mod tests {
 
         _ = binary.get_separator();
         _ = binary.format_buffer(b"qwertyuiop");
+    }
+
+    fn assert_buffer_formatter<T: BufferFormatter>() {}
+
+    #[test]
+    fn test_box() {
+        assert_buffer_formatter::<Box<dyn BufferFormatter>>();
+        assert_buffer_formatter::<Box<HexDecimalFormatter>>();
+        assert_buffer_formatter::<Box<DecimalFormatter>>();
+        assert_buffer_formatter::<Box<OctalFormatter>>();
+        assert_buffer_formatter::<Box<BinaryFormatter>>();
     }
 }

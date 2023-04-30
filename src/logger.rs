@@ -12,6 +12,12 @@ pub trait Logger: 'static {
     fn log(&mut self, record: Record);
 }
 
+impl Logger for Box<dyn Logger> {
+    fn log(&mut self, record: Record) {
+        (**self).log(record)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// ConsoleLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +45,12 @@ impl Logger for ConsoleLogger {
             _ => self.level,
         };
         log::log!(level, "{} {}", record.kind, record.message)
+    }
+}
+
+impl Logger for Box<ConsoleLogger> {
+    fn log(&mut self, record: Record) {
+        (**self).log(record)
     }
 }
 
@@ -75,6 +87,12 @@ impl Logger for MemoryStorageLogger {
         if self.storage.len() > self.max_length {
             let _ = self.storage.pop_front();
         }
+    }
+}
+
+impl Logger for Box<MemoryStorageLogger> {
+    fn log(&mut self, record: Record) {
+        (**self).log(record)
     }
 }
 
@@ -118,6 +136,12 @@ impl Logger for ChannelLogger {
     }
 }
 
+impl Logger for Box<ChannelLogger> {
+    fn log(&mut self, record: Record) {
+        (**self).log(record)
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Tests
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,5 +179,15 @@ mod tests {
         console.log(record.clone());
         memory.log(record.clone());
         channel.log(record);
+    }
+
+    fn assert_logger<T: Logger>() {}
+
+    #[test]
+    fn test_box() {
+        assert_logger::<Box<dyn Logger>>();
+        assert_logger::<Box<ConsoleLogger>>();
+        assert_logger::<Box<MemoryStorageLogger>>();
+        assert_logger::<Box<ChannelLogger>>();
     }
 }
