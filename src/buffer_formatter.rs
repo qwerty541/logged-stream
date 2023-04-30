@@ -1,4 +1,5 @@
 use std::iter::Iterator;
+use std::marker::Send;
 
 const DEFAULT_SEPARATOR: &str = ":";
 
@@ -6,7 +7,7 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait BufferFormatter: 'static {
+pub trait BufferFormatter: Send + 'static {
     fn get_separator(&self) -> &'static str;
 
     fn format_byte(&self, byte: &u8) -> String;
@@ -189,6 +190,7 @@ mod tests {
     use crate::buffer_formatter::DecimalFormatter;
     use crate::buffer_formatter::HexDecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
+    use std::marker::Send;
     use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
@@ -232,5 +234,21 @@ mod tests {
         assert_buffer_formatter::<Box<DecimalFormatter>>();
         assert_buffer_formatter::<Box<OctalFormatter>>();
         assert_buffer_formatter::<Box<BinaryFormatter>>();
+    }
+
+    fn assert_send<T: Send>() {}
+
+    #[test]
+    fn test_send() {
+        assert_send::<HexDecimalFormatter>();
+        assert_send::<DecimalFormatter>();
+        assert_send::<OctalFormatter>();
+        assert_send::<BinaryFormatter>();
+
+        assert_send::<Box<dyn BufferFormatter>>();
+        assert_send::<Box<HexDecimalFormatter>>();
+        assert_send::<Box<DecimalFormatter>>();
+        assert_send::<Box<OctalFormatter>>();
+        assert_send::<Box<BinaryFormatter>>();
     }
 }

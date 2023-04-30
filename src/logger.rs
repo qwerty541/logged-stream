@@ -1,6 +1,7 @@
 use crate::record::Record;
 use crate::RecordKind;
 use std::collections;
+use std::marker::Send;
 use std::str::FromStr;
 use std::sync::mpsc;
 
@@ -8,7 +9,7 @@ use std::sync::mpsc;
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait Logger: 'static {
+pub trait Logger: Send + 'static {
     fn log(&mut self, record: Record);
 }
 
@@ -155,6 +156,7 @@ mod tests {
     use crate::record::Record;
     use crate::record::RecordKind;
     use std::convert::From;
+    use std::marker::Send;
     use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
@@ -189,5 +191,19 @@ mod tests {
         assert_logger::<Box<ConsoleLogger>>();
         assert_logger::<Box<MemoryStorageLogger>>();
         assert_logger::<Box<ChannelLogger>>();
+    }
+
+    fn assert_send<T: Send>() {}
+
+    #[test]
+    fn test_send() {
+        assert_send::<ConsoleLogger>();
+        assert_send::<MemoryStorageLogger>();
+        assert_send::<ChannelLogger>();
+
+        assert_send::<Box<dyn Logger>>();
+        assert_send::<Box<ConsoleLogger>>();
+        assert_send::<Box<MemoryStorageLogger>>();
+        assert_send::<Box<ChannelLogger>>();
     }
 }

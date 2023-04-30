@@ -1,12 +1,13 @@
 use crate::Record;
 use crate::RecordKind;
 use itertools::Itertools;
+use std::marker::Send;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait RecordFilter: 'static {
+pub trait RecordFilter: Send + 'static {
     fn check(&self, record: &Record) -> bool;
 }
 
@@ -76,6 +77,7 @@ mod tests {
     use crate::record::Record;
     use crate::record::RecordKind;
     use std::convert::From;
+    use std::marker::Send;
     use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
@@ -142,5 +144,17 @@ mod tests {
         assert_record_filter::<Box<dyn RecordFilter>>();
         assert_record_filter::<Box<RecordKindFilter>>();
         assert_record_filter::<Box<DefaultFilter>>();
+    }
+
+    fn assert_send<T: Send>() {}
+
+    #[test]
+    fn test_send() {
+        assert_send::<RecordKindFilter>();
+        assert_send::<DefaultFilter>();
+
+        assert_send::<Box<dyn RecordFilter>>();
+        assert_send::<Box<RecordKindFilter>>();
+        assert_send::<Box<DefaultFilter>>();
     }
 }
