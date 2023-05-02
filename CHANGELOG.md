@@ -1,3 +1,5 @@
+## v0.2.5 (02.05.2023)
+
 -   Implemented `BufferFormatter`, `RecordFilter` and `Logger` traits for boxed structures, which already implement such traits.
 -   Implemented such traits for their boxed trait objects.
 -   Such trait now required to be `Send`.
