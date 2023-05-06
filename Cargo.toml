@@ -15,7 +15,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/qwerty541/logged-stream"
 homepage = "https://github.com/qwerty541/logged-stream"
 documentation = "https://docs.rs/logged-stream"
-readme = "./README.md"
+readme = "README.md"
 rust-version = "1.60.0"
 exclude = [".github", ".vscode", "examples", ".gitignore", "rustfmt.toml"]
 
