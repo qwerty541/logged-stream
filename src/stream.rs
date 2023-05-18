@@ -16,6 +16,42 @@ use std::task::Context;
 use std::task::Poll;
 use tokio::io as tokio_io;
 
+/// [`LoggedStream`] is a structure which can be used as a wrapper for another structures
+/// which implements [`Read`] and [`Write`] traits or their asynchronous analogues from [`tokio`]
+/// library [`AsyncRead`] and [`AsyncWrite`] to enable logging of all read and write operations, errors and drop.
+///
+/// [`LoggedStream`] structure constructs from four parts:
+///
+/// -   Underlying IO object, which must implement [`Write`] and [`Read`] traits or their
+/// asynchronous analogues from [`tokio`] library: [`AsyncRead`] and [`AsyncWrite`].
+/// -   Buffer formatting part, which must implement [`BufferFormatter`] trait provided by this library.
+/// This part of [`LoggedStream`] is responsible for the form you will see the input and
+/// output bytes. Currently this library provides the following implementations of [`BufferFormatter`] trait:
+/// [`HexDecimalFormatter`], [`DecimalFormatter`], [`BinaryFormatter`] and [`OctalFormatter`].
+/// Also [`BufferFormatter`] is public trait so you are free to construct your own implementation.
+/// -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
+/// This part of [`LoggedStream`] is responsible for log records filtering. Currently this library
+/// provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which accepts
+/// all log records and [`RecordKindFilter`] which accepts logs with kinds specified during construct.
+/// Also [`RecordFilter`] is public trait and you are free to construct your own implementation.
+/// -   Logging part, which must implement [`Logger`] trait provided by this library. This part
+/// of [`LoggedStream`] is responsible for further work with constructed, formatter and filtered
+/// log record. For example, it can be outputted to console, written to the file, written to database,
+/// written to the memory for further use or sended by the channel. Currently this library provides
+/// the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`] and [`ChannelLogger`].
+/// Also [`Logger`] is public trait and you are free to construct you own implementation.
+///
+/// [`Read`]: io::Read
+/// [`Write`]: io::Write
+/// [`AsyncRead`]: tokio::io::AsyncRead
+/// [`AsyncWrite`]: tokio::io::AsyncWrite
+/// [`HexDecimalFormatter`]: crate::HexDecimalFormatter
+/// [`DecimalFormatter`]: crate::DecimalFormatter
+/// [`BinaryFormatter`]: crate::BinaryFormatter
+/// [`OctalFormatter`]: crate::OctalFormatter
+/// [`DefaultFilter`]: crate::DefaultFilter
+/// [`RecordKindFilter`]: crate::RecordKindFilter
+/// [`ConsoleLogger`]: crate::ConsoleLogger
 pub struct LoggedStream<
     S: 'static,
     Formatter: 'static,
@@ -31,6 +67,7 @@ pub struct LoggedStream<
 impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger + 'static>
     LoggedStream<S, Formatter, Filter, L>
 {
+    /// Construct a new instance of [`LoggedStream`] using provided arguments.
     pub fn new(stream: S, formatter: Formatter, filter: Filter, logger: L) -> Self {
         Self {
             inner_stream: stream,
