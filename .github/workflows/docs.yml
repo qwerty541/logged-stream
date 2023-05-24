@@ -1,0 +1,45 @@
+name: docs
+
+on:
+    push:
+        branches: [master]
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+jobs:
+    build:
+        name: Build docs
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@nightly
+
+            - name: Build docs
+              run: cargo doc --no-deps --all-features
+
+            - name: Prepare docs
+              run: |
+                  mkdir -p _site/master
+                  echo '<meta http-equiv="refresh" content="0;url=master/logged_stream/index.html">' > _site/index.html
+                  echo '<meta http-equiv="refresh" content="0;url=logged_stream/index.html">' > _site/master/index.html
+                  mv target/doc/* _site/master
+
+            - uses: actions/upload-pages-artifact@v1
+
+    deploy:
+        name: Deploy to GitHub Pages
+        needs: build
+
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
+        runs-on: ubuntu-latest
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v1
