@@ -25,7 +25,7 @@
 
 ## Description
 
-`logged-stream` is a Rust library that provides a `LoggedStream` structure which can be used as a wrapper for another structures which implements `std::io::Write` and `std::io::Read` traits or their asynchronous analogues from `tokio` library to enable logging of all read and write operations, errors and drop.
+`logged-stream` is a Rust library that provides a `LoggedStream` structure which can be used as a wrapper for underlying IO object which implements `std::io::Write` and `std::io::Read` traits or their asynchronous analogues from `tokio` library to enable logging of all read and write operations, errors and drop.
 
 `LoggedStream` structure constructs from four parts:
 
