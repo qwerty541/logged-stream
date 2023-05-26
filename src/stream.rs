@@ -16,9 +16,9 @@ use std::task::Context;
 use std::task::Poll;
 use tokio::io as tokio_io;
 
-/// [`LoggedStream`] is a structure which can be used as a wrapper for another structures
-/// which implements [`Read`] and [`Write`] traits or their asynchronous analogues from [`tokio`]
-/// library [`AsyncRead`] and [`AsyncWrite`] to enable logging of all read and write operations, errors and drop.
+/// This is a structure that can be used as a wrapper for underlying IO object which implements [`Read`]
+/// and [`Write`] traits or their asynchronous analogues from [`tokio`] library [`AsyncRead`] and
+/// [`AsyncWrite`] to enable logging of all read and write operations, errors and drop.
 ///
 /// [`LoggedStream`] structure constructs from four parts:
 ///
