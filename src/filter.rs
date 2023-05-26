@@ -7,7 +7,16 @@ use std::marker::Send;
 // Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This trait allows to filter log records ([`Record`]) using [`check`] method which returns [`bool`] value.
+/// It should be implemented for structures which are going to be used as filtering part inside [`LoggedStream`].
+///
+/// [`check`]: RecordFilter::check
+/// [`LoggedStream`]: crate::LoggedStream
 pub trait RecordFilter: Send + 'static {
+    /// This method returns [`bool`] value depending on if received log record ([`Record`]) should be processed
+    /// by logging part inside [`LoggedStream`].
+    ///
+    /// [`LoggedStream`]: crate::LoggedStream
     fn check(&self, record: &Record) -> bool;
 }
 
@@ -21,6 +30,10 @@ impl RecordFilter for Box<dyn RecordFilter> {
 // DefaultFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This is default implementation of [`RecordFilter`] trait which [`check`] method always return `true`.
+/// It should be constructed using [`Default::default`] method.
+///
+/// [`check`]: RecordFilter::check
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DefaultFilter;
 
@@ -40,12 +53,17 @@ impl RecordFilter for Box<DefaultFilter> {
 // RecordKindFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`RecordFilter`] trait accepts allowed log record kinds ([`RecordKind`]) array during
+/// construction and its [`check`] method returns `true` if received log record kind presented inside this array.
+///
+/// [`check`]: RecordFilter::check
 #[derive(Debug)]
 pub struct RecordKindFilter {
     allowed_kinds: Vec<RecordKind>,
 }
 
 impl RecordKindFilter {
+    /// Construct a new instance of [`RecordKindFilter`] using provided array of allowed log record kinds ([`RecordKind`]).
     pub fn new(kinds: &'static [RecordKind]) -> Self {
         Self {
             allowed_kinds: kinds.iter().copied().unique().collect(),
