@@ -7,11 +7,22 @@ const DEFAULT_SEPARATOR: &str = ":";
 // Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This trait allows to format bytes buffer using [`format_buffer`] method. It should be implemented for
+/// structures which are going to be used as formatting part inside [`LoggedStream`].
+///
+/// [`format_buffer`]: BufferFormatter::format_buffer
+/// [`LoggedStream`]: crate::LoggedStream
 pub trait BufferFormatter: Send + 'static {
+    /// This method returns a separator which will be inserted between bytes during [`format_buffer`] method call.
+    /// It should be implemented manually.
+    ///
+    /// [`format_buffer`]: BufferFormatter::format_buffer
     fn get_separator(&self) -> &'static str;
 
+    /// This method accepts one byte from buffer and format it into [`String`]. It should be implemeted manually.
     fn format_byte(&self, byte: &u8) -> String;
 
+    /// This method accepts bytes buffer and format it into [`String`]. It is automatically implemented method.
     fn format_buffer(&self, buffer: &[u8]) -> String {
         buffer
             .iter()
@@ -35,12 +46,15 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
 // DecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
 #[derive(Debug, Clone, Copy)]
 pub struct DecimalFormatter {
     separator: &'static str,
 }
 
 impl DecimalFormatter {
+    /// Construct a new instance of [`DecimalFormatter`] using provided separator. In case if provided separator
+    /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
@@ -72,12 +86,15 @@ impl BufferFormatter for Box<DecimalFormatter> {
 // OctalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
 #[derive(Debug, Clone, Copy)]
 pub struct OctalFormatter {
     separator: &'static str,
 }
 
 impl OctalFormatter {
+    /// Construct a new instance of [`OctalFormatter`] using provided separator. In case if provided separator
+    /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
@@ -109,12 +126,15 @@ impl BufferFormatter for Box<OctalFormatter> {
 // HexDecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
 #[derive(Debug, Clone, Copy)]
 pub struct HexDecimalFormatter {
     separator: &'static str,
 }
 
 impl HexDecimalFormatter {
+    /// Construct a new instance of [`HexDecimalFormatter`] using provided separator. In case if provided separator
+    /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
@@ -146,12 +166,15 @@ impl BufferFormatter for Box<HexDecimalFormatter> {
 // BInaryFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
 #[derive(Debug, Clone, Copy)]
 pub struct BinaryFormatter {
     separator: &'static str,
 }
 
 impl BinaryFormatter {
+    /// Construct a new instance of [`BinaryFormatter`] using provided separator. In case if provided separator
+    /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
