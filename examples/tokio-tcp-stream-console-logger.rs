@@ -1,6 +1,6 @@
 use logged_stream::ConsoleLogger;
 use logged_stream::DefaultFilter;
-use logged_stream::HexDecimalFormatter;
+use logged_stream::HexadecimalFormatter;
 use logged_stream::LoggedStream;
 use std::env;
 use tokio::io::AsyncReadExt;
@@ -42,7 +42,7 @@ async fn main() {
 
     let mut client = LoggedStream::new(
         net::TcpStream::connect("127.0.0.1:8080").await.unwrap(),
-        HexDecimalFormatter::new(None),
+        HexadecimalFormatter::new(None),
         DefaultFilter::default(),
         ConsoleLogger::new_unchecked("debug"),
     );

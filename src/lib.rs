@@ -10,7 +10,7 @@
 //! -   Buffer formatting part, which must implement [`BufferFormatter`] trait provided by
 //! this library. This part of [`LoggedStream`] is responsible for the form you will see the
 //! input and output bytes. Currently this library provides the following implementations of
-//! [`BufferFormatter`] trait: [`HexDecimalFormatter`], [`DecimalFormatter`], [`BinaryFormatter`]
+//! [`BufferFormatter`] trait: [`HexadecimalFormatter`], [`DecimalFormatter`], [`BinaryFormatter`]
 //! and [`OctalFormatter`]. Also [`BufferFormatter`] is public trait so you are free to construct
 //! your own implementation.
 //! -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
@@ -39,7 +39,7 @@ mod stream;
 pub use buffer_formatter::BinaryFormatter;
 pub use buffer_formatter::BufferFormatter;
 pub use buffer_formatter::DecimalFormatter;
-pub use buffer_formatter::HexDecimalFormatter;
+pub use buffer_formatter::HexadecimalFormatter;
 pub use buffer_formatter::OctalFormatter;
 pub use filter::DefaultFilter;
 pub use filter::RecordFilter;

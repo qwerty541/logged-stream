@@ -123,17 +123,17 @@ impl BufferFormatter for Box<OctalFormatter> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// HexDecimalFormatter
+// HexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
 #[derive(Debug, Clone, Copy)]
-pub struct HexDecimalFormatter {
+pub struct HexadecimalFormatter {
     separator: &'static str,
 }
 
-impl HexDecimalFormatter {
-    /// Construct a new instance of [`HexDecimalFormatter`] using provided separator. In case if provided separator
+impl HexadecimalFormatter {
+    /// Construct a new instance of [`HexadecimalFormatter`] using provided separator. In case if provided separator
     /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
@@ -142,7 +142,7 @@ impl HexDecimalFormatter {
     }
 }
 
-impl BufferFormatter for HexDecimalFormatter {
+impl BufferFormatter for HexadecimalFormatter {
     fn get_separator(&self) -> &'static str {
         self.separator
     }
@@ -152,7 +152,7 @@ impl BufferFormatter for HexDecimalFormatter {
     }
 }
 
-impl BufferFormatter for Box<HexDecimalFormatter> {
+impl BufferFormatter for Box<HexadecimalFormatter> {
     fn get_separator(&self) -> &'static str {
         (**self).get_separator()
     }
@@ -211,7 +211,7 @@ mod tests {
     use crate::buffer_formatter::BinaryFormatter;
     use crate::buffer_formatter::BufferFormatter;
     use crate::buffer_formatter::DecimalFormatter;
-    use crate::buffer_formatter::HexDecimalFormatter;
+    use crate::buffer_formatter::HexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
     use std::marker::Send;
     use std::marker::Unpin;
@@ -222,14 +222,14 @@ mod tests {
     fn test_unpin() {
         assert_unpin::<BinaryFormatter>();
         assert_unpin::<DecimalFormatter>();
-        assert_unpin::<HexDecimalFormatter>();
+        assert_unpin::<HexadecimalFormatter>();
         assert_unpin::<OctalFormatter>();
     }
 
     #[test]
     fn test_trait_object_safety() {
         // Assert traint object construct.
-        let hexdecimal: Box<dyn BufferFormatter> = Box::new(HexDecimalFormatter::new(None));
+        let hexdecimal: Box<dyn BufferFormatter> = Box::new(HexadecimalFormatter::new(None));
         let decimal: Box<dyn BufferFormatter> = Box::new(DecimalFormatter::new(None));
         let octal: Box<dyn BufferFormatter> = Box::new(OctalFormatter::new(None));
         let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_box() {
         assert_buffer_formatter::<Box<dyn BufferFormatter>>();
-        assert_buffer_formatter::<Box<HexDecimalFormatter>>();
+        assert_buffer_formatter::<Box<HexadecimalFormatter>>();
         assert_buffer_formatter::<Box<DecimalFormatter>>();
         assert_buffer_formatter::<Box<OctalFormatter>>();
         assert_buffer_formatter::<Box<BinaryFormatter>>();
@@ -263,13 +263,13 @@ mod tests {
 
     #[test]
     fn test_send() {
-        assert_send::<HexDecimalFormatter>();
+        assert_send::<HexadecimalFormatter>();
         assert_send::<DecimalFormatter>();
         assert_send::<OctalFormatter>();
         assert_send::<BinaryFormatter>();
 
         assert_send::<Box<dyn BufferFormatter>>();
-        assert_send::<Box<HexDecimalFormatter>>();
+        assert_send::<Box<HexadecimalFormatter>>();
         assert_send::<Box<DecimalFormatter>>();
         assert_send::<Box<OctalFormatter>>();
         assert_send::<Box<BinaryFormatter>>();
