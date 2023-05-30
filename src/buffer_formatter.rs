@@ -123,17 +123,17 @@ impl BufferFormatter for Box<OctalFormatter> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// HexadecimalFormatter
+// UppercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
 #[derive(Debug, Clone, Copy)]
-pub struct HexadecimalFormatter {
+pub struct UppercaseHexadecimalFormatter {
     separator: &'static str,
 }
 
-impl HexadecimalFormatter {
-    /// Construct a new instance of [`HexadecimalFormatter`] using provided separator. In case if provided separator
+impl UppercaseHexadecimalFormatter {
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided separator. In case if provided separator
     /// will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
@@ -142,7 +142,47 @@ impl HexadecimalFormatter {
     }
 }
 
-impl BufferFormatter for HexadecimalFormatter {
+impl BufferFormatter for UppercaseHexadecimalFormatter {
+    fn get_separator(&self) -> &'static str {
+        self.separator
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        format!("{:02X}", byte)
+    }
+}
+
+impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
+    fn get_separator(&self) -> &'static str {
+        (**self).get_separator()
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// LowercaseHexadecimalFormatter
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
+#[derive(Debug, Clone, Copy)]
+pub struct LowercaseHexadecimalFormatter {
+    separator: &'static str,
+}
+
+impl LowercaseHexadecimalFormatter {
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided separator. In case if provided separator
+    /// will be [`None`], than default separator (`:`) will be used.
+    pub fn new(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+        }
+    }
+}
+
+impl BufferFormatter for LowercaseHexadecimalFormatter {
     fn get_separator(&self) -> &'static str {
         self.separator
     }
@@ -152,7 +192,7 @@ impl BufferFormatter for HexadecimalFormatter {
     }
 }
 
-impl BufferFormatter for Box<HexadecimalFormatter> {
+impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
     fn get_separator(&self) -> &'static str {
         (**self).get_separator()
     }
@@ -211,8 +251,9 @@ mod tests {
     use crate::buffer_formatter::BinaryFormatter;
     use crate::buffer_formatter::BufferFormatter;
     use crate::buffer_formatter::DecimalFormatter;
-    use crate::buffer_formatter::HexadecimalFormatter;
+    use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
+    use crate::buffer_formatter::UppercaseHexadecimalFormatter;
     use std::marker::Send;
     use std::marker::Unpin;
 
@@ -222,21 +263,28 @@ mod tests {
     fn test_unpin() {
         assert_unpin::<BinaryFormatter>();
         assert_unpin::<DecimalFormatter>();
-        assert_unpin::<HexadecimalFormatter>();
+        assert_unpin::<LowercaseHexadecimalFormatter>();
+        assert_unpin::<UppercaseHexadecimalFormatter>();
         assert_unpin::<OctalFormatter>();
     }
 
     #[test]
     fn test_trait_object_safety() {
         // Assert traint object construct.
-        let hexdecimal: Box<dyn BufferFormatter> = Box::new(HexadecimalFormatter::new(None));
+        let lowercase_hexadecimal: Box<dyn BufferFormatter> =
+            Box::new(LowercaseHexadecimalFormatter::new(None));
+        let uppercase_hexadecimal: Box<dyn BufferFormatter> =
+            Box::new(UppercaseHexadecimalFormatter::new(None));
         let decimal: Box<dyn BufferFormatter> = Box::new(DecimalFormatter::new(None));
         let octal: Box<dyn BufferFormatter> = Box::new(OctalFormatter::new(None));
         let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
 
         // Assert that trait object methods are dispatchable.
-        _ = hexdecimal.get_separator();
-        _ = hexdecimal.format_buffer(b"qwertyuiop");
+        _ = lowercase_hexadecimal.get_separator();
+        _ = lowercase_hexadecimal.format_buffer(b"qwertyuiop");
+
+        _ = uppercase_hexadecimal.get_separator();
+        _ = uppercase_hexadecimal.format_buffer(b"qwertyuiop");
 
         _ = decimal.get_separator();
         _ = decimal.format_buffer(b"qwertyuiop");
@@ -253,7 +301,8 @@ mod tests {
     #[test]
     fn test_box() {
         assert_buffer_formatter::<Box<dyn BufferFormatter>>();
-        assert_buffer_formatter::<Box<HexadecimalFormatter>>();
+        assert_buffer_formatter::<Box<LowercaseHexadecimalFormatter>>();
+        assert_buffer_formatter::<Box<UppercaseHexadecimalFormatter>>();
         assert_buffer_formatter::<Box<DecimalFormatter>>();
         assert_buffer_formatter::<Box<OctalFormatter>>();
         assert_buffer_formatter::<Box<BinaryFormatter>>();
@@ -263,13 +312,15 @@ mod tests {
 
     #[test]
     fn test_send() {
-        assert_send::<HexadecimalFormatter>();
+        assert_send::<LowercaseHexadecimalFormatter>();
+        assert_send::<UppercaseHexadecimalFormatter>();
         assert_send::<DecimalFormatter>();
         assert_send::<OctalFormatter>();
         assert_send::<BinaryFormatter>();
 
         assert_send::<Box<dyn BufferFormatter>>();
-        assert_send::<Box<HexadecimalFormatter>>();
+        assert_send::<Box<LowercaseHexadecimalFormatter>>();
+        assert_send::<Box<UppercaseHexadecimalFormatter>>();
         assert_send::<Box<DecimalFormatter>>();
         assert_send::<Box<OctalFormatter>>();
         assert_send::<Box<BinaryFormatter>>();

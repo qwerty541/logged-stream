@@ -27,8 +27,9 @@ use tokio::io as tokio_io;
 /// -   Buffer formatting part, which must implement [`BufferFormatter`] trait provided by this library.
 /// This part of [`LoggedStream`] is responsible for the form you will see the input and
 /// output bytes. Currently this library provides the following implementations of [`BufferFormatter`] trait:
-/// [`HexadecimalFormatter`], [`DecimalFormatter`], [`BinaryFormatter`] and [`OctalFormatter`].
-/// Also [`BufferFormatter`] is public trait so you are free to construct your own implementation.
+/// [`LowercaseHexadecimalFormatter`], [`UppercaseHexadecimalFormatter`], [`DecimalFormatter`],
+/// [`BinaryFormatter`] and [`OctalFormatter`]. Also [`BufferFormatter`] is public trait so you are
+/// free to construct your own implementation.
 /// -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
 /// This part of [`LoggedStream`] is responsible for log records filtering. Currently this library
 /// provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which accepts
@@ -45,7 +46,8 @@ use tokio::io as tokio_io;
 /// [`Write`]: io::Write
 /// [`AsyncRead`]: tokio::io::AsyncRead
 /// [`AsyncWrite`]: tokio::io::AsyncWrite
-/// [`HexadecimalFormatter`]: crate::HexadecimalFormatter
+/// [`LowercaseHexadecimalFormatter`]: crate::LowercaseHexadecimalFormatter
+/// [`UppercaseHexadecimalFormatter`]: crate::UppercaseHexadecimalFormatter
 /// [`DecimalFormatter`]: crate::DecimalFormatter
 /// [`BinaryFormatter`]: crate::BinaryFormatter
 /// [`OctalFormatter`]: crate::OctalFormatter

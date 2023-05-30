@@ -10,9 +10,9 @@
 //! -   Buffer formatting part, which must implement [`BufferFormatter`] trait provided by
 //! this library. This part of [`LoggedStream`] is responsible for the form you will see the
 //! input and output bytes. Currently this library provides the following implementations of
-//! [`BufferFormatter`] trait: [`HexadecimalFormatter`], [`DecimalFormatter`], [`BinaryFormatter`]
-//! and [`OctalFormatter`]. Also [`BufferFormatter`] is public trait so you are free to construct
-//! your own implementation.
+//! [`BufferFormatter`] trait: [`UppercaseHexadecimalFormatter`], [`LowercaseHexadecimalFormatter`],
+//! [`DecimalFormatter`], [`BinaryFormatter`] and [`OctalFormatter`]. Also [`BufferFormatter`] is
+//! public trait so you are free to construct your own implementation.
 //! -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
 //! This part of [`LoggedStream`] is responsible for log records filtering. Currently this
 //! library provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which
@@ -39,8 +39,9 @@ mod stream;
 pub use buffer_formatter::BinaryFormatter;
 pub use buffer_formatter::BufferFormatter;
 pub use buffer_formatter::DecimalFormatter;
-pub use buffer_formatter::HexadecimalFormatter;
+pub use buffer_formatter::LowercaseHexadecimalFormatter;
 pub use buffer_formatter::OctalFormatter;
+pub use buffer_formatter::UppercaseHexadecimalFormatter;
 pub use filter::DefaultFilter;
 pub use filter::RecordFilter;
 pub use filter::RecordKindFilter;
