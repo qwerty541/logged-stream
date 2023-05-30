@@ -1,3 +1,5 @@
+## v0.3.0 (30.05.2023)
+
 -   Add documentation for all public (exported) items (issue #10).
 -   Split `HexadecimalFormatter` into lowercase and uppercase (issue #12).
 -   Cover more code with tests.
