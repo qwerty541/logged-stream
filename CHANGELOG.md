@@ -1,3 +1,7 @@
+-   Add documentation for all public (exported) items (issue #10).
+-   Split `HexadecimalFormatter` into lowercase and uppercase (issue #12).
+-   Cover more code with tests.
+
 ## v0.2.5 (02.05.2023)
 
 -   Implemented `BufferFormatter`, `RecordFilter` and `Logger` traits for boxed structures, which already implement such traits.
