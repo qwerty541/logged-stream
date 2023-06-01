@@ -54,7 +54,7 @@ $ cargo add logged-stream@0.3
 
 ## Example
 
-This is a simple usage example of `LoggedStream` structure with underling `std::net::TcpStream` which connects to some echo-server as IO object, hex decimal formatter, default filter and console logger.
+This is a simple usage example of `LoggedStream` structure with `std::net::TcpStream` as underling IO object which connects to some echo-server, lowercase hexadecimal formatter, default filter and console logger.
 
 ```rust
 fn main() {
