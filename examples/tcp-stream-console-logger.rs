@@ -44,7 +44,7 @@ fn main() {
 
     let mut client = LoggedStream::new(
         net::TcpStream::connect("127.0.0.1:8080").unwrap(),
-        LowercaseHexadecimalFormatter::new(None),
+        LowercaseHexadecimalFormatter::new_default(),
         DefaultFilter::default(),
         ConsoleLogger::new_unchecked("debug"),
     );

@@ -67,6 +67,11 @@ impl DecimalFormatter {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
+
+    /// Construct a new instance of [`DecimalFormatter`] using default separator (`:`).
+    pub fn new_default() -> Self {
+        Self::new_owned(None)
+    }
 }
 
 impl BufferFormatter for DecimalFormatter {
@@ -86,6 +91,12 @@ impl BufferFormatter for Box<DecimalFormatter> {
 
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+}
+
+impl Default for DecimalFormatter {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
@@ -113,6 +124,11 @@ impl OctalFormatter {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
+
+    /// Construct a new instance of [`OctalFormatter`] using default separator (`:`).
+    pub fn new_default() -> Self {
+        Self::new_owned(None)
+    }
 }
 
 impl BufferFormatter for OctalFormatter {
@@ -132,6 +148,12 @@ impl BufferFormatter for Box<OctalFormatter> {
 
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+}
+
+impl Default for OctalFormatter {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
@@ -159,6 +181,11 @@ impl UppercaseHexadecimalFormatter {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
+
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using default separator (`:`).
+    pub fn new_default() -> Self {
+        Self::new_owned(None)
+    }
 }
 
 impl BufferFormatter for UppercaseHexadecimalFormatter {
@@ -178,6 +205,12 @@ impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
 
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+}
+
+impl Default for UppercaseHexadecimalFormatter {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
@@ -205,6 +238,11 @@ impl LowercaseHexadecimalFormatter {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
+
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using default separator (`:`).
+    pub fn new_default() -> Self {
+        Self::new_owned(None)
+    }
 }
 
 impl BufferFormatter for LowercaseHexadecimalFormatter {
@@ -224,6 +262,12 @@ impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
 
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+}
+
+impl Default for LowercaseHexadecimalFormatter {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
@@ -251,6 +295,11 @@ impl BinaryFormatter {
             separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
+
+    /// Construct a new instance of [`BinaryFormatter`] using default separator (`:`).
+    pub fn new_default() -> Self {
+        Self::new_owned(None)
+    }
 }
 
 impl BufferFormatter for BinaryFormatter {
@@ -270,6 +319,12 @@ impl BufferFormatter for Box<BinaryFormatter> {
 
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+}
+
+impl Default for BinaryFormatter {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
