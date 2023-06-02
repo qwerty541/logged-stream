@@ -57,11 +57,7 @@ impl DecimalFormatter {
     /// Construct a new instance of [`DecimalFormatter`] using provided static separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(ToString::to_string)
-                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
-        }
+        Self::new_owned(provided_separator.map(ToString::to_string))
     }
 
     /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
@@ -107,11 +103,7 @@ impl OctalFormatter {
     /// Construct a new instance of [`OctalFormatter`] using provided static separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(ToString::to_string)
-                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
-        }
+        Self::new_owned(provided_separator.map(ToString::to_string))
     }
 
     /// Construct a new instance of [`OctalFormatter`] using provided owned separator. In case if provided
@@ -157,11 +149,7 @@ impl UppercaseHexadecimalFormatter {
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided static separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(ToString::to_string)
-                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
-        }
+        Self::new_owned(provided_separator.map(ToString::to_string))
     }
 
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
@@ -207,11 +195,7 @@ impl LowercaseHexadecimalFormatter {
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided static separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(ToString::to_string)
-                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
-        }
+        Self::new_owned(provided_separator.map(ToString::to_string))
     }
 
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
@@ -257,11 +241,7 @@ impl BinaryFormatter {
     /// Construct a new instance of [`BinaryFormatter`] using provided static separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(ToString::to_string)
-                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
-        }
+        Self::new_owned(provided_separator.map(ToString::to_string))
     }
 
     /// Construct a new instance of [`BinaryFormatter`] using provided owned separator. In case if provided
