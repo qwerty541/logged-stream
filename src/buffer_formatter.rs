@@ -1,5 +1,6 @@
 use std::iter::Iterator;
 use std::marker::Send;
+use std::string::ToString;
 
 const DEFAULT_SEPARATOR: &str = ":";
 
@@ -17,7 +18,7 @@ pub trait BufferFormatter: Send + 'static {
     /// It should be implemented manually.
     ///
     /// [`format_buffer`]: BufferFormatter::format_buffer
-    fn get_separator(&self) -> &'static str;
+    fn get_separator(&self) -> &str;
 
     /// This method accepts one byte from buffer and format it into [`String`]. It should be implemeted manually.
     fn format_byte(&self, byte: &u8) -> String;
@@ -33,7 +34,7 @@ pub trait BufferFormatter: Send + 'static {
 }
 
 impl BufferFormatter for Box<dyn BufferFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
@@ -47,24 +48,34 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct DecimalFormatter {
-    separator: &'static str,
+    separator: String,
 }
 
 impl DecimalFormatter {
-    /// Construct a new instance of [`DecimalFormatter`] using provided separator. In case if provided separator
-    /// will be [`None`], than default separator (`:`) will be used.
+    /// Construct a new instance of [`DecimalFormatter`] using provided static separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator
+                .map(ToString::to_string)
+                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        }
+    }
+
+    /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
+    pub fn new_owned(provided_separator: Option<String>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
 }
 
 impl BufferFormatter for DecimalFormatter {
-    fn get_separator(&self) -> &'static str {
-        self.separator
+    fn get_separator(&self) -> &str {
+        self.separator.as_str()
     }
 
     fn format_byte(&self, byte: &u8) -> String {
@@ -73,7 +84,7 @@ impl BufferFormatter for DecimalFormatter {
 }
 
 impl BufferFormatter for Box<DecimalFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
@@ -87,24 +98,34 @@ impl BufferFormatter for Box<DecimalFormatter> {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct OctalFormatter {
-    separator: &'static str,
+    separator: String,
 }
 
 impl OctalFormatter {
-    /// Construct a new instance of [`OctalFormatter`] using provided separator. In case if provided separator
-    /// will be [`None`], than default separator (`:`) will be used.
+    /// Construct a new instance of [`OctalFormatter`] using provided static separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator
+                .map(ToString::to_string)
+                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        }
+    }
+
+    /// Construct a new instance of [`OctalFormatter`] using provided owned separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
+    pub fn new_owned(provided_separator: Option<String>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
 }
 
 impl BufferFormatter for OctalFormatter {
-    fn get_separator(&self) -> &'static str {
-        self.separator
+    fn get_separator(&self) -> &str {
+        self.separator.as_str()
     }
 
     fn format_byte(&self, byte: &u8) -> String {
@@ -113,7 +134,7 @@ impl BufferFormatter for OctalFormatter {
 }
 
 impl BufferFormatter for Box<OctalFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
@@ -127,24 +148,34 @@ impl BufferFormatter for Box<OctalFormatter> {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct UppercaseHexadecimalFormatter {
-    separator: &'static str,
+    separator: String,
 }
 
 impl UppercaseHexadecimalFormatter {
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided separator. In case if provided separator
-    /// will be [`None`], than default separator (`:`) will be used.
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided static separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator
+                .map(ToString::to_string)
+                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        }
+    }
+
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used.
+    pub fn new_owned(provided_separator: Option<String>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
 }
 
 impl BufferFormatter for UppercaseHexadecimalFormatter {
-    fn get_separator(&self) -> &'static str {
-        self.separator
+    fn get_separator(&self) -> &str {
+        self.separator.as_str()
     }
 
     fn format_byte(&self, byte: &u8) -> String {
@@ -153,7 +184,7 @@ impl BufferFormatter for UppercaseHexadecimalFormatter {
 }
 
 impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
@@ -167,24 +198,34 @@ impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct LowercaseHexadecimalFormatter {
-    separator: &'static str,
+    separator: String,
 }
 
 impl LowercaseHexadecimalFormatter {
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided separator. In case if provided separator
-    /// will be [`None`], than default separator (`:`) will be used.
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided static separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator
+                .map(ToString::to_string)
+                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        }
+    }
+
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used.
+    pub fn new_owned(provided_separator: Option<String>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
 }
 
 impl BufferFormatter for LowercaseHexadecimalFormatter {
-    fn get_separator(&self) -> &'static str {
-        self.separator
+    fn get_separator(&self) -> &str {
+        self.separator.as_str()
     }
 
     fn format_byte(&self, byte: &u8) -> String {
@@ -193,7 +234,7 @@ impl BufferFormatter for LowercaseHexadecimalFormatter {
 }
 
 impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
@@ -207,24 +248,34 @@ impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct BinaryFormatter {
-    separator: &'static str,
+    separator: String,
 }
 
 impl BinaryFormatter {
-    /// Construct a new instance of [`BinaryFormatter`] using provided separator. In case if provided separator
-    /// will be [`None`], than default separator (`:`) will be used.
+    /// Construct a new instance of [`BinaryFormatter`] using provided static separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&'static str>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR),
+            separator: provided_separator
+                .map(ToString::to_string)
+                .unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        }
+    }
+
+    /// Construct a new instance of [`BinaryFormatter`] using provided owned separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used.
+    pub fn new_owned(provided_separator: Option<String>) -> Self {
+        Self {
+            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
         }
     }
 }
 
 impl BufferFormatter for BinaryFormatter {
-    fn get_separator(&self) -> &'static str {
-        self.separator
+    fn get_separator(&self) -> &str {
+        self.separator.as_str()
     }
 
     fn format_byte(&self, byte: &u8) -> String {
@@ -233,7 +284,7 @@ impl BufferFormatter for BinaryFormatter {
 }
 
 impl BufferFormatter for Box<BinaryFormatter> {
-    fn get_separator(&self) -> &'static str {
+    fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
