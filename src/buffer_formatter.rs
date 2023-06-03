@@ -348,11 +348,11 @@ mod tests {
 
     #[test]
     fn test_buffer_formatting() {
-        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new(None);
-        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new(None);
-        let decimal = DecimalFormatter::new(None);
-        let octal = OctalFormatter::new(None);
-        let binary = BinaryFormatter::new(None);
+        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_default();
+        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_default();
+        let decimal = DecimalFormatter::new_default();
+        let octal = OctalFormatter::new_default();
+        let binary = BinaryFormatter::new_default();
 
         assert_eq!(
             lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
