@@ -80,7 +80,7 @@ impl BufferFormatter for DecimalFormatter {
     }
 
     fn format_byte(&self, byte: &u8) -> String {
-        format!("{}", byte)
+        format!("{byte}")
     }
 }
 
@@ -137,7 +137,7 @@ impl BufferFormatter for OctalFormatter {
     }
 
     fn format_byte(&self, byte: &u8) -> String {
-        format!("{:03o}", byte)
+        format!("{byte:03o}")
     }
 }
 
@@ -194,7 +194,7 @@ impl BufferFormatter for UppercaseHexadecimalFormatter {
     }
 
     fn format_byte(&self, byte: &u8) -> String {
-        format!("{:02X}", byte)
+        format!("{byte:02X}")
     }
 }
 
@@ -251,7 +251,7 @@ impl BufferFormatter for LowercaseHexadecimalFormatter {
     }
 
     fn format_byte(&self, byte: &u8) -> String {
-        format!("{:02x}", byte)
+        format!("{byte:02x}")
     }
 }
 
@@ -308,7 +308,7 @@ impl BufferFormatter for BinaryFormatter {
     }
 
     fn format_byte(&self, byte: &u8) -> String {
-        format!("{:08b}", byte)
+        format!("{byte:08b}")
     }
 }
 
