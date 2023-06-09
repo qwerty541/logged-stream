@@ -1,3 +1,22 @@
+-   Changed `BufferFormatter::get_separator` method signature.
+
+Before:
+
+```rust
+fn get_separator(&self) -> &'static str;
+```
+
+After:
+
+```rust
+fn get_separator(&self) -> &str;
+```
+
+-   Added `new_owned` and `new_default` methods for every `BufferFormatter` trait implementation.
+-   Implemented `Default` trait for every `BufferFormatter` trait implementation.
+-   Cover more code with tests.
+-   Improved examples section inside README file.
+
 ## v0.3.0 (30.05.2023)
 
 -   Add documentation for all public (exported) items (issue #10).
