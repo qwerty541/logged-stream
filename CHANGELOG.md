@@ -1,3 +1,5 @@
+## v0.3.1 (09.06.2023)
+
 -   Changed `BufferFormatter::get_separator` method signature.
 
 Before:
