@@ -78,6 +78,12 @@ jobs:
             - name: Install rust (stable)
               uses: dtolnay/rust-toolchain@stable
 
+            - name: Cache
+              uses: action/cache@v3
+              with:
+                  path: ~/.cargo
+                  key: msrv-${{ runner.os }}
+
             - name: Install cargo-msrv
               run: cargo install cargo-msrv
 
