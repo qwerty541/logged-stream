@@ -6,9 +6,19 @@ use std::str::FromStr;
 use std::sync::mpsc;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Trait
+// Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This trait allows to process log record ([`Record`]) using [`log`] method. It should be implemented for
+/// structures which are going to be used as logging part inside [`LoggedStream`]. Method [`log`] is called
+/// by [`LoggedStream`] for further log record processing (writing to the console, to the memory or database, etc.)
+/// after log record message was formatted by some implementation of [`BufferFormatter`] and the entire log record
+/// was filtered by some implementation of [`RecordFilter`].
+///
+/// [`log`]: Logger::log
+/// [`LoggedStream`]: crate::LoggedStream
+/// [`RecordFilter`]: crate::RecordFilter
+/// [`BufferFormatter`]: crate::BufferFormatter
 pub trait Logger: Send + 'static {
     fn log(&mut self, record: Record);
 }
@@ -20,20 +30,28 @@ impl Logger for Box<dyn Logger> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// ConsoleLogger
+// ConsoleLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`Logger`] trait writes log record ([`Record`]) into console using provided [`log::Level`].
+/// Log records with [`Error`] kind ignore provided [`log::Level`] and always write with [`log::Level::Error`].
+///
+/// [`Error`]: crate::RecordKind::Error
 #[derive(Debug, Clone)]
 pub struct ConsoleLogger {
     level: log::Level,
 }
 
 impl ConsoleLogger {
+    /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Returns an [`Err`] in
+    /// case if provided log level [`str`] was incorrect.
     pub fn new(level: &str) -> Result<Self, log::ParseLevelError> {
         let level = log::Level::from_str(level)?;
         Ok(Self { level })
     }
 
+    /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Panics in case if
+    /// provided log level [`str`] was incorrect.
     pub fn new_unchecked(level: &str) -> Self {
         Self::new(level).unwrap()
     }
@@ -56,9 +74,16 @@ impl Logger for Box<ConsoleLogger> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// MemoryStorageLogger
+// MemoryStorageLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`Logger`] trait writes log record ([`Record`]) into inner collection ([`collections::VecDeque`]).
+/// Inner collection length limited by number provided during structure construction. You are able to retrieve
+/// accumulated log records from inner collection using [`get_log_records`] method and clean inner collection
+/// using [`clear_log_records`] method.
+///
+/// [`get_log_records`]: MemoryStorageLogger::get_log_records
+/// [`clear_log_records`]: MemoryStorageLogger::clear_log_records
 #[derive(Debug, Clone)]
 pub struct MemoryStorageLogger {
     storage: collections::VecDeque<Record>,
@@ -66,6 +91,7 @@ pub struct MemoryStorageLogger {
 }
 
 impl MemoryStorageLogger {
+    /// Construct a new instance of [`MemoryStorageLogger`] using provided inner collection max length number,
     pub fn new(max_length: usize) -> Self {
         Self {
             storage: collections::VecDeque::new(),
@@ -73,10 +99,12 @@ impl MemoryStorageLogger {
         }
     }
 
+    /// Retrieve log records from inner collection.
     pub fn get_log_records(&self) -> collections::VecDeque<Record> {
         self.storage.clone()
     }
 
+    /// Clear inner collection of log records.
     pub fn clear_log_records(&mut self) {
         self.storage.clear()
     }
@@ -98,9 +126,15 @@ impl Logger for Box<MemoryStorageLogger> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// ChannelLogger
+// ChannelLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`Logger`] trait sends log records ([`Record`]) by the sending-half of underlying
+/// asynchronous channel. You are able to take receiving-half using [`take_receiver`] and [`take_receiver_unchecked`]
+/// methods.
+///
+/// [`take_receiver`]: ChannelLogger::take_receiver
+/// [`take_receiver_unchecked`]: ChannelLogger::take_receiver_unchecked
 #[derive(Debug)]
 pub struct ChannelLogger {
     sender: mpsc::Sender<Record>,
@@ -108,6 +142,7 @@ pub struct ChannelLogger {
 }
 
 impl ChannelLogger {
+    /// Construct a new instance of [`ChannelLogger`].
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel();
         Self {
@@ -116,10 +151,12 @@ impl ChannelLogger {
         }
     }
 
+    /// Take channel receiving-half. Returns [`None`] if it was already taken.
     pub fn take_receiver(&mut self) -> Option<mpsc::Receiver<Record>> {
         self.receiver.take()
     }
 
+    /// Take channel receiving-half. Panics if it was already taken.
     pub fn take_receiver_unchecked(&mut self) -> mpsc::Receiver<Record> {
         self.take_receiver().unwrap()
     }
@@ -144,7 +181,7 @@ impl Logger for Box<ChannelLogger> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Tests
+// Tests
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]

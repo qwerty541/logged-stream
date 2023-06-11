@@ -4,9 +4,11 @@ use std::convert::From;
 use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Record
+// Record
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This structure represents a log record and contains message string, creation timestamp ([`DateTime`]<[`Utc`]>)
+/// and record kind ([`RecordKind`]).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Record {
     pub kind: RecordKind,
@@ -15,6 +17,7 @@ pub struct Record {
 }
 
 impl Record {
+    /// Construct a new instance of [`Record`] using provided message and kind.
     pub fn new(kind: RecordKind, message: String) -> Self {
         Self {
             kind,
@@ -25,9 +28,11 @@ impl Record {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// RecordKind
+// RecordKind
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This enumeration represents log record kind. It is contained inside [`Record`] and helps to determine
+/// how to work with log record message content which is different for each log record kind.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum RecordKind {
     Open,

@@ -1,3 +1,37 @@
+## v0.3.1 (09.06.2023)
+
+-   Changed `BufferFormatter::get_separator` method signature.
+
+Before:
+
+```rust
+fn get_separator(&self) -> &'static str;
+```
+
+After:
+
+```rust
+fn get_separator(&self) -> &str;
+```
+
+-   Added `new_owned` and `new_default` methods for every `BufferFormatter` trait implementation.
+-   Implemented `Default` trait for every `BufferFormatter` trait implementation.
+-   Cover more code with tests.
+-   Improved examples section inside README file.
+
+## v0.3.0 (30.05.2023)
+
+-   Add documentation for all public (exported) items (issue #10).
+-   Split `HexadecimalFormatter` into lowercase and uppercase (issue #12).
+-   Cover more code with tests.
+
+## v0.2.5 (02.05.2023)
+
+-   Implemented `BufferFormatter`, `RecordFilter` and `Logger` traits for boxed structures, which already implement such traits.
+-   Implemented such traits for their boxed trait objects.
+-   Such trait now required to be `Send`.
+-   Covered with test all changes above.
+
 ## v0.2.4 (29.04.2023)
 
 -   Traits `BufferFormatter`, `RecordFilter` and `Logger` now are object safe and do not require `Sized` implementation. This is the same change as in the previous minor version, but done correctly and covered with tests. Unfortunately I had a misunderstanding of trait object safety.
