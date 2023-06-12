@@ -1,3 +1,19 @@
+-   Changed `new` method signature of all `BufferFormatter` trait implementations.
+
+Before:
+
+```rust
+pub fn new(provided_separator: Option<&'static str>) -> Self;
+```
+
+After:
+
+```rust
+pub fn new(provided_separator: Option<&str>) -> Self;
+```
+
+- Updated some dependencies.
+
 ## v0.3.1 (09.06.2023)
 
 -   Changed `BufferFormatter::get_separator` method signature.
