@@ -1,3 +1,5 @@
+## v0.3.2 (12.06.2023)
+
 -   Changed `new` method signature of all `BufferFormatter` trait implementations.
 
 Before:
