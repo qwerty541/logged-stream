@@ -81,7 +81,7 @@ jobs:
             - name: Cache
               uses: actions/cache@v3
               with:
-                  path: ~/.cargo
+                  path: ~/.cargo/bin
                   key: msrv-${{ runner.os }}
 
             - name: Install cargo-msrv
