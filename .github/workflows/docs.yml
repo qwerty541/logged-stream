@@ -28,7 +28,7 @@ jobs:
                   echo '<meta http-equiv="refresh" content="0;url=logged_stream/index.html">' > _site/master/index.html
                   mv target/doc/* _site/master
 
-            - uses: actions/upload-pages-artifact@v1
+            - uses: actions/upload-pages-artifact@v2
 
     deploy:
         name: Deploy to GitHub Pages
