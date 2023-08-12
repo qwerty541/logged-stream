@@ -16,7 +16,7 @@ repository = "https://github.com/qwerty541/logged-stream"
 homepage = "https://github.com/qwerty541/logged-stream"
 documentation = "https://docs.rs/logged-stream"
 readme = "README.md"
-rust-version = "1.60.0"
+rust-version = "1.63.0"
 exclude = [".github", ".vscode", "examples", ".gitignore", "rustfmt.toml"]
 
 [dependencies]
