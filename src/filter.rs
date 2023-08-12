@@ -108,17 +108,16 @@ mod tests {
 
     #[test]
     fn test_default_filter() {
-        let filter = DefaultFilter::default();
-        assert!(filter.check(&Record::new(
+        assert!(DefaultFilter.check(&Record::new(
             RecordKind::Read,
             String::from("01:02:03:04:05:06")
         )));
-        assert!(filter.check(&Record::new(
+        assert!(DefaultFilter.check(&Record::new(
             RecordKind::Write,
             String::from("01:02:03:04:05:06")
         )));
-        assert!(filter.check(&Record::new(RecordKind::Drop, String::from("deallocated"))));
-        assert!(filter.check(&Record::new(
+        assert!(DefaultFilter.check(&Record::new(RecordKind::Drop, String::from("deallocated"))));
+        assert!(DefaultFilter.check(&Record::new(
             RecordKind::Shutdown,
             String::from("write shutdown request")
         )));
