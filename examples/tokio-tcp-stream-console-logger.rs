@@ -43,7 +43,7 @@ async fn main() {
     let mut client = LoggedStream::new(
         net::TcpStream::connect("127.0.0.1:8080").await.unwrap(),
         LowercaseHexadecimalFormatter::new_default(),
-        DefaultFilter::default(),
+        DefaultFilter,
         ConsoleLogger::new_unchecked("debug"),
     );
 
