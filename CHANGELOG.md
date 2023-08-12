@@ -1,3 +1,5 @@
+## v0.3.3 (13.08.2023)
+
 -   Bump `itertools` from 0.10.5 to 0.11.0
 -   Bump `log` from 0.4.18 to 0.4.20
 -   Bump `tokio` from 1.28.2 to 1.31.0
