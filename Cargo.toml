@@ -20,7 +20,7 @@ rust-version = "1.63.0"
 exclude = [".github", ".vscode", "examples", ".gitignore", "rustfmt.toml"]
 
 [dependencies]
-chrono = "0.4.26"
+chrono = "0.4.31"
 itertools = "0.11.0"
 log = "0.4.20"
 tokio = { version = "1.32.0", features = ["io-util"], default-features = false }
