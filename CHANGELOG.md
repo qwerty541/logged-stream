@@ -1,3 +1,5 @@
+## v0.3.4 (07.10.2023)
+
 - Bump minimal supported rust version (MSRV) from 1.60.0 to 1.63.0
 - README improvements.
 - Dependencies updates:
