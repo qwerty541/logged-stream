@@ -19,7 +19,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
             - name: Install rust (stable)
               uses: dtolnay/rust-toolchain@d76c2a93c593483c9892fd8d2538734f73ed8588
@@ -42,7 +42,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
             - name: Install rust (${{ matrix.rust }})
               uses: dtolnay/rust-toolchain@d76c2a93c593483c9892fd8d2538734f73ed8588
@@ -50,7 +50,7 @@ jobs:
                   toolchain: ${{ matrix.rust }}
 
             - name: Cache
-              uses: actions/cache@v3
+              uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
               with:
                   path: |
                       ~/.cargo
@@ -73,13 +73,13 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
             - name: Install rust (stable)
               uses: dtolnay/rust-toolchain@d76c2a93c593483c9892fd8d2538734f73ed8588
 
             - name: Cache
-              uses: actions/cache@v3
+              uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
               with:
                   path: ~/.cargo
                   key: msrv-${{ runner.os }}
