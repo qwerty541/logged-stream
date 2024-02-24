@@ -1,3 +1,5 @@
+## v0.3.5 (24.02.2024)
+
 - Dependencies updates:
   - `itertools` from 0.11.0 to 0.12.1
   - `tokio` from 1.32.0 to 1.36.0
