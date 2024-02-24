@@ -1,7 +1,8 @@
 - Dependencies updates:
-  - `itertools` from 0.11.0 to 0.12.0
-  - `tokio` from 1.32.0 to 1.35.1
+  - `itertools` from 0.11.0 to 0.12.1
+  - `tokio` from 1.32.0 to 1.36.0
   - `env_logger` from 0.10.0 to 0.10.1
+  - `chrono` from 0.4.31 to 0.4.34
 
 ## v0.3.4 (07.10.2023)
 
