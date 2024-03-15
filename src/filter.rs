@@ -1,7 +1,6 @@
 use crate::Record;
 use crate::RecordKind;
 use itertools::Itertools;
-use std::marker::Send;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Trait
@@ -94,9 +93,6 @@ mod tests {
     use crate::filter::RecordKindFilter;
     use crate::record::Record;
     use crate::record::RecordKind;
-    use std::convert::From;
-    use std::marker::Send;
-    use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
 
