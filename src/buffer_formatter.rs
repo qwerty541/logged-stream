@@ -1,7 +1,3 @@
-use std::iter::Iterator;
-use std::marker::Send;
-use std::string::ToString;
-
 const DEFAULT_SEPARATOR: &str = ":";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -340,9 +336,6 @@ mod tests {
     use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
     use crate::buffer_formatter::UppercaseHexadecimalFormatter;
-    use std::convert::From;
-    use std::marker::Send;
-    use std::marker::Unpin;
 
     const FORMATTING_TEST_VALUES: &[u8] = &[10, 11, 12, 13, 14, 15, 16, 17, 18];
 

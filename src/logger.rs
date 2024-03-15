@@ -1,7 +1,6 @@
 use crate::record::Record;
 use crate::RecordKind;
 use std::collections;
-use std::marker::Send;
 use std::str::FromStr;
 use std::sync::mpsc;
 
@@ -192,9 +191,6 @@ mod tests {
     use crate::logger::MemoryStorageLogger;
     use crate::record::Record;
     use crate::record::RecordKind;
-    use std::convert::From;
-    use std::marker::Send;
-    use std::marker::Unpin;
 
     fn assert_unpin<T: Unpin>() {}
 
