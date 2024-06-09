@@ -32,3 +32,11 @@ tokio = { version = "1.36.0", features = [
     "net",
     "rt-multi-thread"
 ], default-features = false }
+
+[[example]]
+name = "tcp-stream-console-logger"
+path = "examples/tcp-stream-console-logger.rs"
+
+[[example]]
+name = "tokio-tcp-stream-console-logger"
+path = "examples/tokio-tcp-stream-console-logger.rs"
