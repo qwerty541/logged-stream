@@ -18,13 +18,15 @@
 [actions-url]: https://github.com/qwerty541/logged-stream/actions
 [rust-version]: https://img.shields.io/badge/rust-1.63.0%2B-lightgrey.svg?logo=rust
 
-## Table of contents
+<details>
+<summary>Table of contents</summary>
 
 -   [Description](#description)
 -   [Usage](#usage)
 -   [Example](#example)
 -   [License](#license)
 -   [Contribution](#contribution)
+</details>
 
 ## Description
 
