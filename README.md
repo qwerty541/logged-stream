@@ -28,6 +28,8 @@
 
 ## Description
 
+### Structure
+
 `logged-stream` is a Rust library that provides a `LoggedStream` structure which can be used as a wrapper for underlying IO object which implements `std::io::Write` and `std::io::Read` traits or their asynchronous analogues from `tokio` library to enable logging of all read and write operations, errors and drop.
 
 `LoggedStream` structure constructs from four parts:
@@ -36,6 +38,24 @@
 -   Buffer formatting part, which must implement `BufferFormatter` trait provided by this library. This part of `LoggedStream` is responsible for the form you will see the input and output bytes. Currently this library provides the following implementations of `BufferFormatter` trait: `LowercaseHexadecimalFormatter`, `UppercaseHexadecimalFormatter`, `DecimalFormatter`, `BinaryFormatter` and `OctalFormatter`. Also `BufferFormatter` is public trait so you are free to construct your own implementation.
 -   Filtering part, which must implement `RecordFilter` trait provide by this library. This part of `LoggedStream` is responsible for log records filtering. Currently this library provides the following implementation of `RecordFilter` trait: `DefaultFilter` which accepts all log records and `RecordKindFilter` which accepts logs with kinds specified during construct. Also `RecordFilter` is public trait and you are free to construct your own implementation.
 -   Logging part, which must implement `Logger` trait provided by this library. This part of `LoggedStream` is responsible for further work with constructed, formatter and filtered log record. For example, it can be outputted to console, written to the file, written to database, written to the memory for further use or sended by the channel. Currently this library provides the following implementations of `Logger` trait: `ConsoleLogger`, `MemoryStorageLogger` and `ChannelLogger`. Also `Logger` is public trait and you are free to construct you own implementation.
+
+### Use Cases
+
+- Network Traffic Monitoring:
+   - Monitor and log all incoming and outgoing network traffic in a server or client application.
+   - Useful for debugging network protocols, tracking data exchange, and ensuring security compliance.
+- Debugging I/O Operations:
+   - Log all read and write operations to diagnose issues with file or network I/O.
+   - Helps in identifying bottlenecks, data corruption, and unexpected behavior in I/O operations.
+- Performance Analysis:
+   - Analyze the performance of I/O operations by logging the time taken for each read/write operation.
+   - Helps in identifying performance issues and optimizing I/O-intensive applications.
+- Database Activity Logging:
+  - Log all interactions with a database, including queries, updates, and transaction details.
+  - Helps in database performance tuning, debugging query issues, and maintaining audit logs.
+- Proxy Servers:
+  - Implement logging in proxy servers to monitor and log all forwarded traffic.
+  - Useful for debugging proxy behavior and ensuring proper data routing.
 
 ## Usage
 
