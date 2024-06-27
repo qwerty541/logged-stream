@@ -1,4 +1,4 @@
-# logged-stream
+# logged-stream <!-- omit in toc -->
 
 [![Crates.io][crates-badge]][crates-url]
 [![Released API docs][docs-badge]][docs-url]
@@ -21,11 +21,13 @@
 <details>
 <summary>Table of contents</summary>
 
--   [Description](#description)
--   [Usage](#usage)
--   [Example](#example)
--   [License](#license)
--   [Contribution](#contribution)
+- [Description](#description)
+  - [Structure](#structure)
+  - [Use Cases](#use-cases)
+- [Usage](#usage)
+- [Example](#example)
+- [License](#license)
+- [Contribution](#contribution)
 </details>
 
 ## Description
