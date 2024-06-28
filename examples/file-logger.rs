@@ -67,6 +67,4 @@ async fn main() {
     client.write_all(&send).await.unwrap();
     let mut response = [0u8; 4];
     client.read_exact(&mut response).await.unwrap();
-
-    fs::remove_file("./examples/traffic.log").unwrap();
 }
