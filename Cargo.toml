@@ -40,3 +40,7 @@ path = "examples/tcp-stream-console-logger.rs"
 [[example]]
 name = "tokio-tcp-stream-console-logger"
 path = "examples/tokio-tcp-stream-console-logger.rs"
+
+[[example]]
+name = "file-logger"
+path = "examples/file-logger.rs"
