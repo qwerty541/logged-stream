@@ -47,6 +47,7 @@ pub use filter::RecordFilter;
 pub use filter::RecordKindFilter;
 pub use logger::ChannelLogger;
 pub use logger::ConsoleLogger;
+pub use logger::FileLogger;
 pub use logger::Logger;
 pub use logger::MemoryStorageLogger;
 pub use record::Record;
