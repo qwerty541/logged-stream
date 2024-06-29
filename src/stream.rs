@@ -37,8 +37,9 @@ use tokio::io as tokio_io;
 ///     of [`LoggedStream`] is responsible for further work with constructed, formatter and filtered
 ///     log record. For example, it can be outputted to console, written to the file, written to database,
 ///     written to the memory for further use or sended by the channel. Currently this library provides
-///     the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`] and [`ChannelLogger`].
-///     Also [`Logger`] is public trait and you are free to construct you own implementation.
+///     the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`],
+///     [`ChannelLogger`] and [`FileLogger`]. Also [`Logger`] is public trait and you are free to construct
+///     your own implementation.
 ///
 /// [`Read`]: io::Read
 /// [`Write`]: io::Write
@@ -52,6 +53,7 @@ use tokio::io as tokio_io;
 /// [`DefaultFilter`]: crate::DefaultFilter
 /// [`RecordKindFilter`]: crate::RecordKindFilter
 /// [`ConsoleLogger`]: crate::ConsoleLogger
+/// [`FileLogger`]: crate::FileLogger
 pub struct LoggedStream<
     S: 'static,
     Formatter: 'static,
