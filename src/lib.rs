@@ -22,8 +22,9 @@
 //!     of [`LoggedStream`] is responsible for further work with constructed, formatter and filtered
 //!     log record. For example, it can be outputted to console, written to the file, written to database,
 //!     written to the memory for further use or sended by the channel. Currently this library provides
-//!     the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`] and
-//!     [`ChannelLogger`]. Also [`Logger`] is public trait and you are free to construct you own implementation.
+//!     the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`],
+//!     [`ChannelLogger`] and [`FileLogger`]. Also [`Logger`] is public trait and you are free to construct
+//!     your own implementation.
 //!
 //! [`Write`]: std::io::Write
 //! [`Read`]: std::io::Read
@@ -47,6 +48,7 @@ pub use filter::RecordFilter;
 pub use filter::RecordKindFilter;
 pub use logger::ChannelLogger;
 pub use logger::ConsoleLogger;
+pub use logger::FileLogger;
 pub use logger::Logger;
 pub use logger::MemoryStorageLogger;
 pub use record::Record;

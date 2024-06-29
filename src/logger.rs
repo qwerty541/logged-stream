@@ -1,6 +1,7 @@
 use crate::record::Record;
 use crate::RecordKind;
 use std::collections;
+use std::io::Write;
 use std::str::FromStr;
 use std::sync::mpsc;
 
@@ -180,6 +181,40 @@ impl Logger for Box<ChannelLogger> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// FileLogger
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// This implementation of [`Logger`] trait writes log records ([`Record`]) into provided file.
+pub struct FileLogger {
+    file: std::fs::File,
+}
+
+impl FileLogger {
+    /// Construct a new instance of [`FileLogger`] using provided file.
+    pub fn new(file: std::fs::File) -> Self {
+        Self { file }
+    }
+}
+
+impl Logger for FileLogger {
+    fn log(&mut self, record: Record) {
+        let _ = writeln!(
+            self.file,
+            "[{}] {} {}",
+            record.time.format("%+"),
+            record.kind,
+            record.message
+        );
+    }
+}
+
+impl Logger for Box<FileLogger> {
+    fn log(&mut self, record: Record) {
+        (**self).log(record)
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -187,6 +222,7 @@ impl Logger for Box<ChannelLogger> {
 mod tests {
     use crate::logger::ChannelLogger;
     use crate::logger::ConsoleLogger;
+    use crate::logger::FileLogger;
     use crate::logger::Logger;
     use crate::logger::MemoryStorageLogger;
     use crate::record::Record;
@@ -199,6 +235,7 @@ mod tests {
         assert_unpin::<ConsoleLogger>();
         assert_unpin::<ChannelLogger>();
         assert_unpin::<MemoryStorageLogger>();
+        assert_unpin::<FileLogger>();
     }
 
     #[test]
@@ -224,6 +261,7 @@ mod tests {
         assert_logger::<Box<ConsoleLogger>>();
         assert_logger::<Box<MemoryStorageLogger>>();
         assert_logger::<Box<ChannelLogger>>();
+        assert_logger::<Box<FileLogger>>();
     }
 
     fn assert_send<T: Send>() {}
@@ -233,10 +271,12 @@ mod tests {
         assert_send::<ConsoleLogger>();
         assert_send::<MemoryStorageLogger>();
         assert_send::<ChannelLogger>();
+        assert_send::<FileLogger>();
 
         assert_send::<Box<dyn Logger>>();
         assert_send::<Box<ConsoleLogger>>();
         assert_send::<Box<MemoryStorageLogger>>();
         assert_send::<Box<ChannelLogger>>();
+        assert_send::<Box<FileLogger>>();
     }
 }
