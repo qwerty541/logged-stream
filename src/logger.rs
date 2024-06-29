@@ -184,11 +184,13 @@ impl Logger for Box<ChannelLogger> {
 // FileLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// This implementation of [`Logger`] trait writes log records ([`Record`]) into provided file.
 pub struct FileLogger {
     file: std::fs::File,
 }
 
 impl FileLogger {
+    /// Construct a new instance of [`FileLogger`] using provided file.
     pub fn new(file: std::fs::File) -> Self {
         Self { file }
     }
