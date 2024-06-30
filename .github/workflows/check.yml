@@ -85,7 +85,10 @@ jobs:
               run: cargo build --all-targets
 
             - name: Tests
-              run: cargo test --lib --examples
+              run: cargo test --lib --examples --benches
+
+            - name: Benchmarks
+              run: cargo bench
 
     msrv:
         name: Check minimal supported rust version (MSRV).
