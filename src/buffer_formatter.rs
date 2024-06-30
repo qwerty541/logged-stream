@@ -30,10 +30,12 @@ pub trait BufferFormatter: Send + 'static {
 }
 
 impl BufferFormatter for Box<dyn BufferFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
@@ -71,20 +73,24 @@ impl DecimalFormatter {
 }
 
 impl BufferFormatter for DecimalFormatter {
+    #[inline]
     fn get_separator(&self) -> &str {
         self.separator.as_str()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         format!("{byte}")
     }
 }
 
 impl BufferFormatter for Box<DecimalFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
@@ -128,20 +134,24 @@ impl OctalFormatter {
 }
 
 impl BufferFormatter for OctalFormatter {
+    #[inline]
     fn get_separator(&self) -> &str {
         self.separator.as_str()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         format!("{byte:03o}")
     }
 }
 
 impl BufferFormatter for Box<OctalFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
@@ -185,20 +195,24 @@ impl UppercaseHexadecimalFormatter {
 }
 
 impl BufferFormatter for UppercaseHexadecimalFormatter {
+    #[inline]
     fn get_separator(&self) -> &str {
         self.separator.as_str()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         format!("{byte:02X}")
     }
 }
 
 impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
@@ -242,20 +256,24 @@ impl LowercaseHexadecimalFormatter {
 }
 
 impl BufferFormatter for LowercaseHexadecimalFormatter {
+    #[inline]
     fn get_separator(&self) -> &str {
         self.separator.as_str()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         format!("{byte:02x}")
     }
 }
 
 impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
@@ -299,20 +317,24 @@ impl BinaryFormatter {
 }
 
 impl BufferFormatter for BinaryFormatter {
+    #[inline]
     fn get_separator(&self) -> &str {
         self.separator.as_str()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         format!("{byte:08b}")
     }
 }
 
 impl BufferFormatter for Box<BinaryFormatter> {
+    #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
     }
 
+    #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
