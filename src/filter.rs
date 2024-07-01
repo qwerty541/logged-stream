@@ -37,6 +37,7 @@ impl RecordFilter for Box<dyn RecordFilter> {
 pub struct DefaultFilter;
 
 impl RecordFilter for DefaultFilter {
+    #[inline]
     fn check(&self, _record: &Record) -> bool {
         true
     }
