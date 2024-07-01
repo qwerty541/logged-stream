@@ -72,6 +72,7 @@ impl RecordKindFilter {
 }
 
 impl RecordFilter for RecordKindFilter {
+    #[inline]
     fn check(&self, record: &Record) -> bool {
         self.allowed_kinds.contains(&record.kind)
     }
