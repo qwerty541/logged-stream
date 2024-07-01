@@ -100,11 +100,13 @@ impl MemoryStorageLogger {
     }
 
     /// Retrieve log records from inner collection.
+    #[inline]
     pub fn get_log_records(&self) -> collections::VecDeque<Record> {
         self.storage.clone()
     }
 
     /// Clear inner collection of log records.
+    #[inline]
     pub fn clear_log_records(&mut self) {
         self.storage.clear()
     }
@@ -152,6 +154,7 @@ impl ChannelLogger {
     }
 
     /// Take channel receiving-half. Returns [`None`] if it was already taken.
+    #[inline]
     pub fn take_receiver(&mut self) -> Option<mpsc::Receiver<Record>> {
         self.receiver.take()
     }
