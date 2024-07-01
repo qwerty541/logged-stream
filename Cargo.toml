@@ -26,6 +26,7 @@ log = "0.4.21"
 tokio = { version = "1.38.0", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
+criterion = "0.5.1"
 env_logger = "0.10.1"
 tokio = { version = "1.38.0", features = [
     "macros",
@@ -44,3 +45,13 @@ path = "examples/tokio-tcp-stream-console-logger.rs"
 [[example]]
 name = "file-logger"
 path = "examples/file-logger.rs"
+
+[[bench]]
+name = "buffer-formatter"
+path = "benches/buffer-formatter.rs"
+harness = false
+
+[[bench]]
+name = "filter"
+path = "benches/filter.rs"
+harness = false

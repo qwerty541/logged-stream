@@ -37,6 +37,7 @@ impl RecordFilter for Box<dyn RecordFilter> {
 pub struct DefaultFilter;
 
 impl RecordFilter for DefaultFilter {
+    #[inline]
     fn check(&self, _record: &Record) -> bool {
         true
     }
@@ -71,6 +72,7 @@ impl RecordKindFilter {
 }
 
 impl RecordFilter for RecordKindFilter {
+    #[inline]
     fn check(&self, record: &Record) -> bool {
         self.allowed_kinds.contains(&record.kind)
     }

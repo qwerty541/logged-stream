@@ -83,10 +83,12 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
 impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
     LoggedStream<S, Formatter, Filter, MemoryStorageLogger>
 {
+    #[inline]
     pub fn get_log_records(&self) -> collections::VecDeque<Record> {
         self.logger.get_log_records()
     }
 
+    #[inline]
     pub fn clear_log_records(&mut self) {
         self.logger.clear_log_records()
     }
@@ -95,10 +97,12 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
 impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
     LoggedStream<S, Formatter, Filter, ChannelLogger>
 {
+    #[inline]
     pub fn take_receiver(&mut self) -> Option<mpsc::Receiver<Record>> {
         self.logger.take_receiver()
     }
 
+    #[inline]
     pub fn take_receiver_unchecked(&mut self) -> mpsc::Receiver<Record> {
         self.logger.take_receiver_unchecked()
     }
