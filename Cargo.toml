@@ -50,3 +50,8 @@ path = "examples/file-logger.rs"
 name = "buffer-formatter"
 path = "benches/buffer-formatter.rs"
 harness = false
+
+[[bench]]
+name = "filter"
+path = "benches/filter.rs"
+harness = false
