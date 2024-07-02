@@ -107,3 +107,7 @@ fn get_separator(&self) -> &str;
 -   Added several implementations of `RecordFilter` trait: `DefaultFilter` which accepts all log records and `RecordKindFilter` which accepts log records with kinds specified during construct.
 -   Improved several sections inside README file.
 -   Removed redundant dependencies features.
+
+## v0.1.0 (13.04.2023)
+
+Initial release
