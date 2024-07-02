@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `FileLogger` structure which is the new `Logger` trait implementation, it writes log records into a file.
+- Created an example of `FileLogger` structure usage.
+- Created basic performance tests for `BufferFormatter` and `RecordFilter` traits implementations using `criterion` library.
+- Added `#[inline]` attribute to several methods to improve performance based on the results of performance tests.
+
+### Fixed
+
+- Removed unnecessary imports to fix clippy lints.
+- Fixed indentation of documentation comments in several places to fix `doc_lazy_continuation` clippy lint.
+
+### Documentation
+
+- Table of contents currently hidden by default.
+- Extended description section with use cases information.
+
+### Dependencies
+
+- Updated `itertools` from 0.12.1 to 0.13.0
+- Updated `mio` from 0.8.10 to 0.8.11
+- Updated `log` from 0.4.20 to 0.4.21
+- Updated `chrono` from 0.4.34 to 0.4.38
+- Updated `tokio` from 1.36.0 to 1.38.0
+
 ## v0.3.5 (24.02.2024)
 
 - Dependencies updates:
