@@ -3,7 +3,7 @@ name = "logged-stream"
 version = "0.3.5"
 edition = "2021"
 authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
-description = "This Rust library provides a wrapper for io objects like `std::net::TcpStream` to enable logging of all read and write operations, errors and drop."
+description = "Logging of all read/write operations, errors and drop of underlying IO object."
 keywords = ["io", "logging", "async", "network"]
 categories = [
     "asynchronous",
