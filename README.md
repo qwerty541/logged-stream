@@ -67,13 +67,13 @@ To use `logged-stream`, add the following line to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-logged-stream = "0.3"
+logged-stream = "0.4"
 ```
 
 or run the following Cargo command in your project directory:
 
 ```
-$ cargo add logged-stream@0.3
+$ cargo add logged-stream@0.4
 ```
 
 ## Example
