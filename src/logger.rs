@@ -9,11 +9,13 @@ use std::sync::mpsc;
 // Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This trait allows to process log record ([`Record`]) using [`log`] method. It should be implemented for
-/// structures which are going to be used as logging part inside [`LoggedStream`]. Method [`log`] is called
-/// by [`LoggedStream`] for further log record processing (writing to the console, to the memory or database, etc.)
-/// after log record message was formatted by some implementation of [`BufferFormatter`] and the entire log record
-/// was filtered by some implementation of [`RecordFilter`].
+/// Trait for processing log records in [`LoggedStream`].
+///
+/// This trait allows processing log records ([`Record`]) using the [`log`] method. It should be implemented for
+/// structures intended to be used as the logging component within [`LoggedStream`]. The [`log`] method is called
+/// by [`LoggedStream`] for further log record processing (e.g., writing to the console, memory, or database)
+/// after the log record message has been formatted by an implementation of [`BufferFormatter`] and filtered
+/// by an implementation of [`RecordFilter`].
 ///
 /// [`log`]: Logger::log
 /// [`LoggedStream`]: crate::LoggedStream
@@ -33,8 +35,11 @@ impl Logger for Box<dyn Logger> {
 // ConsoleLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`Logger`] trait writes log record ([`Record`]) into console using provided [`log::Level`].
-/// Log records with [`Error`] kind ignore provided [`log::Level`] and always write with [`log::Level::Error`].
+/// Logger implementation that writes log records to the console.
+///
+/// This implementation of the [`Logger`] trait writes log records ([`Record`]) to the console using the provided
+/// [`log::Level`]. Log records with the [`Error`] kind ignore the provided [`log::Level`] and are always written
+/// with [`log::Level::Error`].
 ///
 /// [`Error`]: crate::RecordKind::Error
 #[derive(Debug, Clone)]
@@ -77,11 +82,14 @@ impl Logger for Box<ConsoleLogger> {
 // MemoryStorageLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`Logger`] trait writes log record ([`Record`]) into inner collection ([`collections::VecDeque`]).
-/// Inner collection length limited by number provided during structure construction. You are able to retrieve
-/// accumulated log records from inner collection using [`get_log_records`] method and clean inner collection
-/// using [`clear_log_records`] method.
+/// Logger implementation that writes log records to an inner [`VecDeque`] collection.
 ///
+/// This implementation of the [`Logger`] trait writes log records ([`Record`]) into an inner collection
+/// ([`collections::VecDeque`]). The length of the inner collection is limited by a number provided during
+/// structure construction. You can retrieve accumulated log records from the inner collection using the
+/// [`get_log_records`] method and clear the inner collection using the [`clear_log_records`] method.
+///
+/// [`VecDeque`]: collections::VecDeque
 /// [`get_log_records`]: MemoryStorageLogger::get_log_records
 /// [`clear_log_records`]: MemoryStorageLogger::clear_log_records
 #[derive(Debug, Clone)]
@@ -131,9 +139,11 @@ impl Logger for Box<MemoryStorageLogger> {
 // ChannelLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`Logger`] trait sends log records ([`Record`]) by the sending-half of underlying
-/// asynchronous channel. You are able to take receiving-half using [`take_receiver`] and [`take_receiver_unchecked`]
-/// methods.
+/// Logger implementation that sends log records via an asynchronous channel.
+///
+/// This implementation of the [`Logger`] trait sends log records ([`Record`]) using the sending-half of an underlying
+/// asynchronous channel. You can obtain the receiving-half of the channel using the [`take_receiver`] and
+/// [`take_receiver_unchecked`] methods.
 ///
 /// [`take_receiver`]: ChannelLogger::take_receiver
 /// [`take_receiver_unchecked`]: ChannelLogger::take_receiver_unchecked

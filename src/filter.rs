@@ -6,8 +6,10 @@ use itertools::Itertools;
 // Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This trait allows to filter log records ([`Record`]) using [`check`] method which returns [`bool`] value.
-/// It should be implemented for structures which are going to be used as filtering part inside [`LoggedStream`].
+/// Trait for filtering log records in [`LoggedStream`].
+///
+/// This trait allows filtering log records ([`Record`]) using the [`check`] method, which returns a [`bool`] value.
+/// It should be implemented for structures intended to be used as the filtering component within [`LoggedStream`].
 ///
 /// [`check`]: RecordFilter::check
 /// [`LoggedStream`]: crate::LoggedStream
@@ -53,8 +55,10 @@ impl RecordFilter for Box<DefaultFilter> {
 // RecordKindFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`RecordFilter`] trait accepts allowed log record kinds ([`RecordKind`]) array during
-/// construction and its [`check`] method returns `true` if received log record kind presented inside this array.
+/// Implementation of [`RecordFilter`] that accepts allowed [`RecordKind`] array.
+///
+/// This implementation of the [`RecordFilter`] trait accepts an array of allowed log record kinds ([`RecordKind`]) during
+/// construction. Its [`check`] method returns `true` if the received log record kind is present in this array.
 ///
 /// [`check`]: RecordFilter::check
 #[derive(Debug)]
