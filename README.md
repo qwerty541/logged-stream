@@ -16,7 +16,7 @@
 [master-docs-url]: https://qwerty541.github.io/logged-stream/master/
 [workflow-badge]: https://github.com/qwerty541/logged-stream/workflows/check/badge.svg
 [actions-url]: https://github.com/qwerty541/logged-stream/actions
-[rust-version]: https://img.shields.io/badge/rust-1.63.0%2B-lightgrey.svg?logo=rust
+[rust-version]: https://img.shields.io/badge/rust-1.71.1%2B-lightgrey.svg?logo=rust
 
 <details>
 <summary>Table of contents</summary>
