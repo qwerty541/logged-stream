@@ -80,6 +80,7 @@ jobs:
                   restore-keys: |
                       ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
                       ${{ matrix.os }}-${{ matrix.rust }}-
+                  enableCrossOsArchive: true
 
             - name: Build
               run: cargo build --all-targets
@@ -111,6 +112,7 @@ jobs:
                       target
                       Cargo.lock
                   key: msrv-${{ runner.os }}
+                  enableCrossOsArchive: true
 
             - name: Install cargo-msrv
               run: cargo install cargo-msrv
