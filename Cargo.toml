@@ -20,7 +20,7 @@ rust-version = "1.71.1"
 include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE-*", "README.md"]
 
 [dependencies]
-chrono = "0.4.38"
+chrono = "0.4.39"
 itertools = "0.13.0"
 log = "0.4.22"
 tokio = { version = "1.41.1", features = ["io-util"], default-features = false }
