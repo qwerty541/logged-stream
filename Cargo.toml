@@ -22,7 +22,7 @@ include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE-*", "README.md"]
 [dependencies]
 chrono = "0.4.40"
 itertools = "0.14.0"
-log = "0.4.25"
+log = "0.4.26"
 tokio = { version = "1.43.0", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
