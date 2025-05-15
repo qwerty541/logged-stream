@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Changed MSRV from 1.63.0 to 1.71.1.
+
+### Fixed
+
+- Resolved multiple `too_long_first_doc_paragraph` clippy warnings on the nightly toolchain.
+
+### Documentation
+
+- Created code of conduct document.
+- Added badge with total crate downloads count to the README file.
+- Minor README improvements.
+
+### Dependencies
+
+- Updated `log` from 0.4.21 to 0.4.27
+- Updated `tokio` from 1.38.0 to 1.45.0
+- Updated `env_logger` from 0.10.2 to 0.11.6
+- Updated `chrono` from 0.4.38 to 0.4.41
+- Updated `itertools` from 0.13.0 to 0.14.0
+
 ## v0.4.0 (03.07.2024)
 
 ### Added
