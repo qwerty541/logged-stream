@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `chrono` from 0.4.38 to 0.4.41
 - Updated `itertools` from 0.13.0 to 0.14.0
 
+---
+
 ## v0.4.0 (03.07.2024)
 
 ### Added
@@ -56,109 +58,196 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `chrono` from 0.4.34 to 0.4.38
 - Updated `tokio` from 1.36.0 to 1.38.0
 
+---
+
 ## v0.3.5 (24.02.2024)
 
-- Dependencies updates:
-  - `itertools` from 0.11.0 to 0.12.1
-  - `tokio` from 1.32.0 to 1.36.0
-  - `env_logger` from 0.10.0 to 0.10.1
-  - `chrono` from 0.4.31 to 0.4.34
+### Dependencies
+
+- Updated `itertools` from 0.11.0 to 0.12.1.
+- Updated `tokio` from 1.32.0 to 1.36.0.
+- Updated `env_logger` from 0.10.0 to 0.10.1.
+- Updated `chrono` from 0.4.31 to 0.4.34.
+
+---
 
 ## v0.3.4 (07.10.2023)
 
-- Bump minimal supported rust version (MSRV) from 1.60.0 to 1.63.0
-- README improvements.
-- Dependencies updates:
-  - `tokio` from 1.31.0 to 1.32.0
-  - `chrono` from 0.4.26 to 0.4.31
+### Changed
+
+- Changed MSRV from 1.60.0 to 1.63.0.
+
+### Documentation
+
+- Improved README file.
+
+### Dependencies
+
+- Updated `tokio` from 1.31.0 to 1.32.0.
+- Updated `chrono` from 0.4.26 to 0.4.31.
+
+---
 
 ## v0.3.3 (13.08.2023)
 
--   Bump `itertools` from 0.10.5 to 0.11.0
--   Bump `log` from 0.4.18 to 0.4.20
--   Bump `tokio` from 1.28.2 to 1.31.0
+### Dependencies
+
+- Updated `itertools` from 0.10.5 to 0.11.0.
+- Updated `log` from 0.4.18 to 0.4.20.
+- Updated `tokio` from 1.28.2 to 1.31.0.
+
+---
 
 ## v0.3.2 (12.06.2023)
 
--   Changed `new` method signature of all `BufferFormatter` trait implementations.
+### Changed
 
-Before:
+- Updated the `new` method signature for all `BufferFormatter` trait implementations.
 
-```rust
-pub fn new(provided_separator: Option<&'static str>) -> Self;
-```
+  **Before:**
+  ```rust
+  pub fn new(provided_separator: Option<&'static str>) -> Self;
+  ```
 
-After:
+  **After:**
+  ```rust
+  pub fn new(provided_separator: Option<&str>) -> Self;
+  ```
 
-```rust
-pub fn new(provided_separator: Option<&str>) -> Self;
-```
+### Dependencies
 
-- Updated some dependencies.
+- Updated several dependencies.
+
+---
 
 ## v0.3.1 (09.06.2023)
 
--   Changed `BufferFormatter::get_separator` method signature.
+### Added
 
-Before:
+- Added `new_owned` and `new_default` methods for all `BufferFormatter` trait implementations.
+- Implemented the `Default` trait for all `BufferFormatter` trait implementations.
 
-```rust
-fn get_separator(&self) -> &'static str;
-```
+### Changed
 
-After:
+- Updated the `BufferFormatter::get_separator` method signature.
 
-```rust
-fn get_separator(&self) -> &str;
-```
+  **Before:**
+  ```rust
+  fn get_separator(&self) -> &'static str;
+  ```
 
--   Added `new_owned` and `new_default` methods for every `BufferFormatter` trait implementation.
--   Implemented `Default` trait for every `BufferFormatter` trait implementation.
--   Cover more code with tests.
--   Improved examples section inside README file.
+  **After:**
+  ```rust
+  fn get_separator(&self) -> &str;
+  ```
+
+### Testing
+
+- Increased test coverage.
+
+### Documentation
+
+- Improved the examples section in the README file.
+
+---
 
 ## v0.3.0 (30.05.2023)
 
--   Add documentation for all public (exported) items (issue #10).
--   Split `HexadecimalFormatter` into lowercase and uppercase (issue #12).
--   Cover more code with tests.
+### Added
+
+- Added documentation for all public (exported) items (issue #10).
+- Split `HexadecimalFormatter` into lowercase and uppercase variants (issue #12).
+
+### Testing
+
+- Increased test coverage.
+
+---
 
 ## v0.2.5 (02.05.2023)
 
--   Implemented `BufferFormatter`, `RecordFilter` and `Logger` traits for boxed structures, which already implement such traits.
--   Implemented such traits for their boxed trait objects.
--   Such trait now required to be `Send`.
--   Covered with test all changes above.
+### Added
+
+- Implemented `BufferFormatter`, `RecordFilter`, and `Logger` traits for boxed structures that already implement these traits.
+- Implemented these traits for their boxed trait objects.
+- Made these traits require the `Send` marker.
+
+### Testing
+
+- Added tests to cover the above changes.
+
+---
 
 ## v0.2.4 (29.04.2023)
 
--   Traits `BufferFormatter`, `RecordFilter` and `Logger` now are object safe and do not require `Sized` implementation. This is the same change as in the previous minor version, but done correctly and covered with tests. Unfortunately I had a misunderstanding of trait object safety.
+### Changed
+
+- Made the `BufferFormatter`, `RecordFilter`, and `Logger` traits object-safe and removed the `Sized` requirement.
+- Corrected the implementation of the above change and added tests (fix for issues introduced in `v0.2.3`).
+
+---
 
 ## v0.2.3 (26.04.2023)
 
--   Structures which implement `BufferFormatter`, `RecordFilter` and `Logger` traits now required to be `Sized`. This change allows to use the following traits as trait-objects i.e. `Box<dyn BufferFormatter>`.
+### Changed
+
+- Made structures implementing the `BufferFormatter`, `RecordFilter`, and `Logger` traits require the `Sized` marker.
+- Enabled the use of these traits as trait objects (e.g., `Box<dyn BufferFormatter>`).
+
+---
 
 ## v0.2.2 (18.04.2023)
 
--   Add categories into `Cargo.toml` file.
--   Exclude examples folder from published package to decrease its size.
--   README improvements.
+### Added
+
+- Added categories to the `Cargo.toml` file.
+
+### Changed
+
+- Excluded the `examples` folder from the published package to reduce its size.
+
+### Documentation
+
+- Improved the README file.
+
+---
 
 ## v0.2.1 (17.04.2023)
 
--   Exclude several redundant files and folders from published package to decrease its size.
--   `ConsoleLogger` now does not include timestamp into log string, it can be done by `env_logger`.
--   `ConsoleLogger` now ignores provided level when receive error kind log records.
--   Several README improvements.
+### Changed
+
+- Excluded redundant files and folders from the published package to reduce its size.
+- Updated `ConsoleLogger` to exclude timestamps from log strings (can now be handled by `env_logger`).
+- Updated `ConsoleLogger` to ignore the provided log level for error-kind log records.
+
+### Documentation
+
+- Improved the README file.
+
+---
 
 ## v0.2.0 (14.04.2023)
 
--   Extend `LoggedStream` structure with fourth part which will be responsible for log records filter.
--   Added new trait `RecordFilter` which must be implemented by new fourth part of `LoggedStream`.
--   Added several implementations of `RecordFilter` trait: `DefaultFilter` which accepts all log records and `RecordKindFilter` which accepts log records with kinds specified during construct.
--   Improved several sections inside README file.
--   Removed redundant dependencies features.
+### Added
+
+- Extended the `LoggedStream` structure with a fourth component for log record filtering.
+- Introduced the `RecordFilter` trait for the new filtering component.
+- Added implementations of the `RecordFilter` trait:
+  - `DefaultFilter`: Accepts all log records.
+  - `RecordKindFilter`: Accepts log records of specified kinds.
+
+### Documentation
+
+- Improved several sections in the README file.
+
+### Removed
+
+- Removed redundant dependency features.
+
+---
 
 ## v0.1.0 (13.04.2023)
 
-Initial release
+### Initial Release
+
+- Initial release of the `logged-stream` crate.
