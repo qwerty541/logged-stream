@@ -12,3 +12,5 @@ This document is a checklist for the release process of the `logged-stream` proj
 - Rebuild [Cargo.lock](./Cargo.lock) by running `cargo build`.
 - Commit changes with message `v<version>`.
 - Run `cargo publish` to publish the crate to crates.io.
+- Push changes to the repository.
+- Draft a new release in the repository's "Releases" section on GitHub. Include the new version and the changelog highlights in the release description.
