@@ -8,6 +8,7 @@
 ![License][license-badge]
 [![Workflow Status][workflow-badge]][actions-url]
 ![Lines count][sloc-badge]
+![Cocomo][cocomo-badge]
 
 [crates-version-badge]: https://img.shields.io/crates/v/logged-stream.svg
 [crates-downloads-badge]: https://img.shields.io/crates/d/logged-stream.svg
@@ -21,6 +22,7 @@
 [actions-url]: https://github.com/qwerty541/logged-stream/actions
 [rust-version]: https://img.shields.io/badge/rust-1.71.1%2B-lightgrey.svg?logo=rust
 [sloc-badge]: https://sloc.xyz/github/qwerty541/logged-stream/?badge-bg-color=2081C2
+[cocomo-badge]: https://sloc.xyz/github/qwerty541/logged-stream/?badge-bg-color=2081C2&category=cocomo
 
 <details>
 <summary>Table of contents</summary>
