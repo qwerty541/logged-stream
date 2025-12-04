@@ -5,7 +5,7 @@
 [![Released API docs][docs-badge]][docs-url]
 [![Master API docs][master-docs-badge]][master-docs-url]
 ![Rust version][rust-version]
-![License][license-badge]
+[![License][license-badge]][license-url]
 [![Workflow Status][workflow-badge]][actions-url]
 ![Lines count][sloc-badge]
 ![Cocomo][cocomo-badge]
@@ -16,6 +16,7 @@
 [docs-badge]: https://docs.rs/logged-stream/badge.svg
 [docs-url]: https://docs.rs/logged-stream
 [license-badge]: https://img.shields.io/crates/l/logged-stream.svg
+[license-url]: https://github.com/qwerty541/logged-stream/blob/master/LICENSE-MIT
 [master-docs-badge]: https://img.shields.io/badge/docs-master-green.svg
 [master-docs-url]: https://qwerty541.github.io/logged-stream/master/
 [workflow-badge]: https://github.com/qwerty541/logged-stream/workflows/check/badge.svg
