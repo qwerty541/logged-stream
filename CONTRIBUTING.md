@@ -66,7 +66,7 @@ cargo build
 ### Testing
 
 ```bash
-cargo test --all-features
+cargo test --lib --examples --benches
 ```
 
 CI also builds all targets and runs tests for the library, examples, and benches across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
