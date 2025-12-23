@@ -1,4 +1,23 @@
-# Contributing to logged-stream
+# Contributing to logged-stream <!-- omit in toc -->
+
+<details>
+<summary>Table of contents</summary>
+
+- [Description](#description)
+- [Quick start checklist](#quick-start-checklist)
+- [Project layout](#project-layout)
+- [Toolchain and MSRV](#toolchain-and-msrv)
+- [Building, testing, and docs](#building-testing-and-docs)
+- [Linting and formatting](#linting-and-formatting)
+- [Examples](#examples)
+- [Benchmarks](#benchmarks)
+- [Commit messages and PRs](#commit-messages-and-prs)
+- [Filing issues](#filing-issues)
+- [Security](#security)
+- [License](#license)
+</details>
+
+## Description
 
 Thanks for your interest in improving logged-stream! This document explains how to get set up, propose changes, and meet the project’s quality bar. Contributions of all kinds are welcome: bug reports, docs, code, and examples.
 
