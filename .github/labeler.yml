@@ -17,7 +17,8 @@ documentation:
           - RELEASE.md
           - CHANGELOG.md
           - CODE_OF_CONDUCT.md
-          - SECURITY.md‎
+          - SECURITY.md
+          - CONTRIBUTING.md
 
 github_actions:
   - changed-files:
