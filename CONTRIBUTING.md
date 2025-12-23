@@ -74,7 +74,7 @@ CI also builds all targets and runs tests for the library, examples, and benches
 ### Linting & Formatting
 
 - Formatting: `cargo fmt --all` (CI uses `cargo fmt --check`)
-- Linting: `cargo clippy --all-features -- -D warnings`
+- Linting: `cargo clippy -- -D warnings`
 
 Try to keep Clippy clean without adding broad `#[allow]` attributes unless there’s a strong reason.
 
