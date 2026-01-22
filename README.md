@@ -4,7 +4,7 @@
 [![Crates.io downloads][crates-downloads-badge]][crates-url]
 [![Released API docs][docs-badge]][docs-url]
 [![Master API docs][master-docs-badge]][master-docs-url]
-![Rust version][rust-version]
+[![Rust version][rust-version]][rust-url]
 [![License][license-badge]][license-url]
 [![Workflow Status][workflow-badge]][actions-url]
 [![Lines count][sloc-badge]][scc-repo-url]
@@ -22,6 +22,7 @@
 [workflow-badge]: https://github.com/qwerty541/logged-stream/workflows/check/badge.svg
 [actions-url]: https://github.com/qwerty541/logged-stream/actions
 [rust-version]: https://img.shields.io/badge/rust-1.71.1%2B-lightgrey.svg?logo=rust
+[rust-url]: https://blog.rust-lang.org/
 [sloc-badge]: https://sloc.xyz/github/qwerty541/logged-stream/?badge-bg-color=2081C2
 [cocomo-badge]: https://sloc.xyz/github/qwerty541/logged-stream/?badge-bg-color=2081C2&category=cocomo
 [scc-repo-url]: https://github.com/boyter/scc
