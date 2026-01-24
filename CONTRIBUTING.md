@@ -131,6 +131,7 @@ If you add a benchmark, keep it small, deterministic, and clearly named.
 - `benches/` — Criterion benchmarks
 - `README.md` — crate overview and usage
 - `CHANGELOG.md` — release notes
+- `CODE_OF_CONDUCT.md` — community guidelines
 - `RELEASE.md` — release checklist
 - `SECURITY.md` — how to report security issues
 
