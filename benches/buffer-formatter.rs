@@ -8,7 +8,7 @@ use logged_stream::LowercaseHexadecimalFormatter;
 use logged_stream::OctalFormatter;
 use logged_stream::UppercaseHexadecimalFormatter;
 
-const TEST_ARRAY_LENGTH: usize = 10000;
+const TEST_ARRAY_LENGTH: usize = 1000;
 
 const fn generate_array() -> [u8; TEST_ARRAY_LENGTH] {
     let mut arr = [0; TEST_ARRAY_LENGTH];
@@ -49,7 +49,19 @@ fn criterion_benchmark(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().noise_threshold(0.05).sample_size(60);
+    config = if std::env::var("CI").is_ok() {
+        // CI mode: faster benchmarks with aggressive time limits
+        Criterion::default()
+            .noise_threshold(0.05)
+            .sample_size(10)
+            .warm_up_time(std::time::Duration::from_secs(1))
+            .measurement_time(std::time::Duration::from_secs(2))
+    } else {
+        // Local mode: thorough benchmarks
+        Criterion::default()
+            .noise_threshold(0.05)
+            .sample_size(60)
+    };
     targets = criterion_benchmark
 }
 criterion_main!(benches);

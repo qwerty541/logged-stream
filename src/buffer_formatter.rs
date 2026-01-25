@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 const DEFAULT_SEPARATOR: &str = ":";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,34 +50,53 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
 #[derive(Debug, Clone)]
 pub struct DecimalFormatter {
-    separator: String,
+    separator: Cow<'static, str>,
 }
 
 impl DecimalFormatter {
     /// Construct a new instance of [`DecimalFormatter`] using provided borrowed separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
+        Self {
+            separator: provided_separator
+                .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`DecimalFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
     }
 
     /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            separator: provided_separator
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
 
     /// Construct a new instance of [`DecimalFormatter`] using default separator (`:`).
     pub fn new_default() -> Self {
-        Self::new_owned(None)
+        Self {
+            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+        }
     }
 }
 
 impl BufferFormatter for DecimalFormatter {
     #[inline]
     fn get_separator(&self) -> &str {
-        self.separator.as_str()
+        &self.separator
     }
 
     #[inline]
@@ -102,6 +123,12 @@ impl Default for DecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for DecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OctalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,34 +136,53 @@ impl Default for DecimalFormatter {
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
 #[derive(Debug, Clone)]
 pub struct OctalFormatter {
-    separator: String,
+    separator: Cow<'static, str>,
 }
 
 impl OctalFormatter {
     /// Construct a new instance of [`OctalFormatter`] using provided borrowed separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
+        Self {
+            separator: provided_separator
+                .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`OctalFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
     }
 
     /// Construct a new instance of [`OctalFormatter`] using provided owned separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            separator: provided_separator
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
 
     /// Construct a new instance of [`OctalFormatter`] using default separator (`:`).
     pub fn new_default() -> Self {
-        Self::new_owned(None)
+        Self {
+            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+        }
     }
 }
 
 impl BufferFormatter for OctalFormatter {
     #[inline]
     fn get_separator(&self) -> &str {
-        self.separator.as_str()
+        &self.separator
     }
 
     #[inline]
@@ -163,6 +209,12 @@ impl Default for OctalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for OctalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // UppercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,34 +222,53 @@ impl Default for OctalFormatter {
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
 #[derive(Debug, Clone)]
 pub struct UppercaseHexadecimalFormatter {
-    separator: String,
+    separator: Cow<'static, str>,
 }
 
 impl UppercaseHexadecimalFormatter {
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided borrowed separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
+        Self {
+            separator: provided_separator
+                .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided static borrowed separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
     }
 
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            separator: provided_separator
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
 
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using default separator (`:`).
     pub fn new_default() -> Self {
-        Self::new_owned(None)
+        Self {
+            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+        }
     }
 }
 
 impl BufferFormatter for UppercaseHexadecimalFormatter {
     #[inline]
     fn get_separator(&self) -> &str {
-        self.separator.as_str()
+        &self.separator
     }
 
     #[inline]
@@ -224,41 +295,66 @@ impl Default for UppercaseHexadecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for UppercaseHexadecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // LowercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
 #[derive(Debug, Clone)]
 pub struct LowercaseHexadecimalFormatter {
-    separator: String,
+    separator: Cow<'static, str>,
 }
 
 impl LowercaseHexadecimalFormatter {
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided borrowed separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
+        Self {
+            separator: provided_separator
+                .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided static borrowed separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
     }
 
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            separator: provided_separator
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
 
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using default separator (`:`).
     pub fn new_default() -> Self {
-        Self::new_owned(None)
+        Self {
+            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+        }
     }
 }
 
 impl BufferFormatter for LowercaseHexadecimalFormatter {
     #[inline]
     fn get_separator(&self) -> &str {
-        self.separator.as_str()
+        &self.separator
     }
 
     #[inline]
@@ -285,6 +381,12 @@ impl Default for LowercaseHexadecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for LowercaseHexadecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // BinaryFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,34 +394,53 @@ impl Default for LowercaseHexadecimalFormatter {
 /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
 #[derive(Debug, Clone)]
 pub struct BinaryFormatter {
-    separator: String,
+    separator: Cow<'static, str>,
 }
 
 impl BinaryFormatter {
     /// Construct a new instance of [`BinaryFormatter`] using provided borrowed separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
+        Self {
+            separator: provided_separator
+                .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`BinaryFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
     }
 
     /// Construct a new instance of [`BinaryFormatter`] using provided owned separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
         Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            separator: provided_separator
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
 
     /// Construct a new instance of [`BinaryFormatter`] using default separator (`:`).
     pub fn new_default() -> Self {
-        Self::new_owned(None)
+        Self {
+            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+        }
     }
 }
 
 impl BufferFormatter for BinaryFormatter {
     #[inline]
     fn get_separator(&self) -> &str {
-        self.separator.as_str()
+        &self.separator
     }
 
     #[inline]
@@ -343,6 +464,12 @@ impl BufferFormatter for Box<BinaryFormatter> {
 impl Default for BinaryFormatter {
     fn default() -> Self {
         Self::new_default()
+    }
+}
+
+impl From<Cow<'static, str>> for BinaryFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
     }
 }
 
@@ -425,6 +552,161 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_static_separator() {
+        // new_static should produce same results as new, just without allocation
+        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_static(Some("-"));
+        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_static(Some("-"));
+        let decimal = DecimalFormatter::new_static(Some("-"));
+        let octal = OctalFormatter::new_static(Some("-"));
+        let binary = BinaryFormatter::new_static(Some("-"));
+
+        assert_eq!(
+            lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0a-0b-0c-0d-0e-0f-10-11-12")
+        );
+        assert_eq!(
+            uppercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+        assert_eq!(
+            decimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10-11-12-13-14-15-16-17-18")
+        );
+        assert_eq!(
+            octal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("012-013-014-015-016-017-020-021-022")
+        );
+        assert_eq!(
+            binary.format_buffer(FORMATTING_TEST_VALUES),
+            String::from(
+                "00001010-00001011-00001100-00001101-00001110-00001111-00010000-00010001-00010010"
+            )
+        );
+    }
+
+    #[test]
+    fn test_owned_separator() {
+        // Test new_owned with runtime strings
+        let runtime_sep = String::from(" | ");
+        let formatter = DecimalFormatter::new_owned(Some(runtime_sep));
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18")
+        );
+
+        // Test with None (should use default)
+        let formatter = OctalFormatter::new_owned(None);
+        assert_eq!(formatter.get_separator(), ":");
+    }
+
+    #[test]
+    fn test_from_cow() {
+        use std::borrow::Cow;
+
+        // Test with borrowed Cow
+        let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
+        let formatter = DecimalFormatter::from(sep_borrowed);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test with owned Cow
+        let sep_owned: Cow<'static, str> = Cow::Owned(String::from(" | "));
+        let formatter = OctalFormatter::from(sep_owned);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Cow::Borrowed("-").into();
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+
+        // Test all formatters
+        let lowercase_hex: LowercaseHexadecimalFormatter = Cow::Borrowed(" ").into();
+        let binary: BinaryFormatter = Cow::<'static, str>::Owned(String::from(",")).into();
+
+        assert_eq!(lowercase_hex.get_separator(), " ");
+        assert_eq!(binary.get_separator(), ",");
+    }
+
+    #[test]
+    fn test_format_byte() {
+        // Test individual byte formatting
+        let decimal = DecimalFormatter::new_default();
+        let octal = OctalFormatter::new_default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::new_default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::new_default();
+        let binary = BinaryFormatter::new_default();
+
+        let byte = 255u8;
+        assert_eq!(decimal.format_byte(&byte), "255");
+        assert_eq!(octal.format_byte(&byte), "377");
+        assert_eq!(uppercase_hex.format_byte(&byte), "FF");
+        assert_eq!(lowercase_hex.format_byte(&byte), "ff");
+        assert_eq!(binary.format_byte(&byte), "11111111");
+
+        let byte = 0u8;
+        assert_eq!(decimal.format_byte(&byte), "0");
+        assert_eq!(octal.format_byte(&byte), "000");
+        assert_eq!(uppercase_hex.format_byte(&byte), "00");
+        assert_eq!(lowercase_hex.format_byte(&byte), "00");
+        assert_eq!(binary.format_byte(&byte), "00000000");
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        let formatter = DecimalFormatter::new_default();
+
+        // Empty buffer
+        assert_eq!(formatter.format_buffer(&[]), "");
+
+        // Single byte
+        assert_eq!(formatter.format_buffer(&[42]), "42");
+
+        // Multi-character separator
+        let formatter = DecimalFormatter::new(Some(" -> "));
+        assert_eq!(formatter.format_buffer(&[1, 2, 3]), "1 -> 2 -> 3");
+
+        // Empty string separator
+        let formatter = DecimalFormatter::new(Some(""));
+        assert_eq!(formatter.format_buffer(&[10, 11, 12]), "101112");
+    }
+
+    #[test]
+    fn test_default_trait() {
+        // Test Default implementation
+        let decimal = DecimalFormatter::default();
+        let octal = OctalFormatter::default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::default();
+        let binary = BinaryFormatter::default();
+
+        // All should use default separator
+        assert_eq!(decimal.get_separator(), ":");
+        assert_eq!(octal.get_separator(), ":");
+        assert_eq!(uppercase_hex.get_separator(), ":");
+        assert_eq!(lowercase_hex.get_separator(), ":");
+        assert_eq!(binary.get_separator(), ":");
+    }
+
+    #[test]
+    fn test_clone() {
+        // Test Clone trait
+        let original = DecimalFormatter::new(Some("-"));
+        let cloned = original.clone();
+
+        assert_eq!(original.get_separator(), cloned.get_separator());
+        assert_eq!(
+            original.format_buffer(&[1, 2, 3]),
+            cloned.format_buffer(&[1, 2, 3])
+        );
+
+        // Verify they're independent (though Cow makes this subtle)
+        let original_result = original.format_buffer(&[10, 20]);
+        let cloned_result = cloned.format_buffer(&[10, 20]);
+        assert_eq!(original_result, cloned_result);
+    }
+
     fn assert_unpin<T: Unpin>() {}
 
     #[test]
@@ -438,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construction.
         let lowercase_hexadecimal: Box<dyn BufferFormatter> =
             Box::new(LowercaseHexadecimalFormatter::new(None));
         let uppercase_hexadecimal: Box<dyn BufferFormatter> =
@@ -448,20 +730,20 @@ mod tests {
         let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
 
         // Assert that trait object methods are dispatchable.
-        _ = lowercase_hexadecimal.get_separator();
-        _ = lowercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(lowercase_hexadecimal.get_separator(), ":");
+        assert!(!lowercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = uppercase_hexadecimal.get_separator();
-        _ = uppercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(uppercase_hexadecimal.get_separator(), ":");
+        assert!(!uppercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = decimal.get_separator();
-        _ = decimal.format_buffer(b"qwertyuiop");
+        assert_eq!(decimal.get_separator(), ":");
+        assert!(!decimal.format_buffer(b"test").is_empty());
 
-        _ = octal.get_separator();
-        _ = octal.format_buffer(b"qwertyuiop");
+        assert_eq!(octal.get_separator(), ":");
+        assert!(!octal.format_buffer(b"test").is_empty());
 
-        _ = binary.get_separator();
-        _ = binary.format_buffer(b"qwertyuiop");
+        assert_eq!(binary.get_separator(), ":");
+        assert!(!binary.format_buffer(b"test").is_empty());
     }
 
     fn assert_buffer_formatter<T: BufferFormatter>() {}
