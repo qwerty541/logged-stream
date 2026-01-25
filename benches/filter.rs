@@ -23,10 +23,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 criterion_group! {
     name = filter;
     config = if std::env::var("CI").is_ok() {
-        // CI mode: faster benchmarks
+        // CI mode: faster benchmarks with aggressive time limits
         Criterion::default()
-            .sample_size(20)
-            .measurement_time(std::time::Duration::from_secs(3))
+            .sample_size(10)
+            .warm_up_time(std::time::Duration::from_secs(1))
+            .measurement_time(std::time::Duration::from_secs(1))
     } else {
         // Local mode: default thorough benchmarks
         Criterion::default()

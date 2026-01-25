@@ -50,11 +50,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = if std::env::var("CI").is_ok() {
-        // CI mode: faster benchmarks with reduced samples
+        // CI mode: faster benchmarks with aggressive time limits
         Criterion::default()
             .noise_threshold(0.05)
-            .sample_size(20)
-            .measurement_time(std::time::Duration::from_secs(5))
+            .sample_size(10)
+            .warm_up_time(std::time::Duration::from_secs(1))
+            .measurement_time(std::time::Duration::from_secs(2))
     } else {
         // Local mode: thorough benchmarks
         Criterion::default()
