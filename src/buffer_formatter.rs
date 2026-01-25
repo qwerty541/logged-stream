@@ -123,6 +123,12 @@ impl Default for DecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for DecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OctalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -200,6 +206,12 @@ impl BufferFormatter for Box<OctalFormatter> {
 impl Default for OctalFormatter {
     fn default() -> Self {
         Self::new_default()
+    }
+}
+
+impl From<Cow<'static, str>> for OctalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
     }
 }
 
@@ -283,6 +295,12 @@ impl Default for UppercaseHexadecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for UppercaseHexadecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // LowercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,6 +381,12 @@ impl Default for LowercaseHexadecimalFormatter {
     }
 }
 
+impl From<Cow<'static, str>> for LowercaseHexadecimalFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // BinaryFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -440,6 +464,12 @@ impl BufferFormatter for Box<BinaryFormatter> {
 impl Default for BinaryFormatter {
     fn default() -> Self {
         Self::new_default()
+    }
+}
+
+impl From<Cow<'static, str>> for BinaryFormatter {
+    fn from(separator: Cow<'static, str>) -> Self {
+        Self { separator }
     }
 }
 
@@ -552,6 +582,35 @@ mod tests {
                 "00001010-00001011-00001100-00001101-00001110-00001111-00010000-00010001-00010010"
             )
         );
+    }
+
+    #[test]
+    fn test_from_cow() {
+        use std::borrow::Cow;
+
+        // Test with borrowed Cow
+        let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
+        let formatter = DecimalFormatter::from(sep_borrowed);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test with owned Cow
+        let sep_owned: Cow<'static, str> = Cow::Owned(String::from(" | "));
+        let formatter = OctalFormatter::from(sep_owned);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Cow::Borrowed("-").into();
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+
+        // Test all formatters
+        let lowercase_hex: LowercaseHexadecimalFormatter = Cow::Borrowed(" ").into();
+        let binary: BinaryFormatter = Cow::<'static, str>::Owned(String::from(",")).into();
+
+        assert_eq!(lowercase_hex.get_separator(), " ");
+        assert_eq!(binary.get_separator(), ",");
     }
 
     fn assert_unpin<T: Unpin>() {}
