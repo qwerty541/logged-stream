@@ -64,6 +64,17 @@ impl DecimalFormatter {
         }
     }
 
+    /// Construct a new instance of [`DecimalFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
     /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
     /// separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
@@ -129,6 +140,17 @@ impl OctalFormatter {
         Self {
             separator: provided_separator
                 .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`OctalFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
                 .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
@@ -202,6 +224,17 @@ impl UppercaseHexadecimalFormatter {
         }
     }
 
+    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided static borrowed separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
     /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
@@ -271,6 +304,17 @@ impl LowercaseHexadecimalFormatter {
         }
     }
 
+    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided static borrowed separator. In case
+    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
     /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
     /// if provided separator will be [`None`], than default separator (`:`) will be used.
     pub fn new_owned(provided_separator: Option<String>) -> Self {
@@ -336,6 +380,17 @@ impl BinaryFormatter {
         Self {
             separator: provided_separator
                 .map(|s| Cow::Owned(s.to_string()))
+                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+        }
+    }
+
+    /// Construct a new instance of [`BinaryFormatter`] using provided static borrowed separator. In case if provided
+    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+    /// static string separators.
+    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+        Self {
+            separator: provided_separator
+                .map(Cow::Borrowed)
                 .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
         }
     }
@@ -442,6 +497,38 @@ mod tests {
         let decimal = DecimalFormatter::new(Some("-"));
         let octal = OctalFormatter::new(Some("-"));
         let binary = BinaryFormatter::new(Some("-"));
+
+        assert_eq!(
+            lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0a-0b-0c-0d-0e-0f-10-11-12")
+        );
+        assert_eq!(
+            uppercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+        assert_eq!(
+            decimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10-11-12-13-14-15-16-17-18")
+        );
+        assert_eq!(
+            octal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("012-013-014-015-016-017-020-021-022")
+        );
+        assert_eq!(
+            binary.format_buffer(FORMATTING_TEST_VALUES),
+            String::from(
+                "00001010-00001011-00001100-00001101-00001110-00001111-00010000-00010001-00010010"
+            )
+        );
+    }
+
+    #[test]
+    fn test_static_separator() {
+        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_static(Some("-"));
+        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_static(Some("-"));
+        let decimal = DecimalFormatter::new_static(Some("-"));
+        let octal = OctalFormatter::new_static(Some("-"));
+        let binary = BinaryFormatter::new_static(Some("-"));
 
         assert_eq!(
             lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
