@@ -305,7 +305,7 @@ impl From<Cow<'static, str>> for UppercaseHexadecimalFormatter {
 // LowercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
+/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
 #[derive(Debug, Clone)]
 pub struct LowercaseHexadecimalFormatter {
     separator: Cow<'static, str>,
