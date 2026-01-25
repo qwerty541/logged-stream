@@ -554,6 +554,7 @@ mod tests {
 
     #[test]
     fn test_static_separator() {
+        // new_static should produce same results as new, just without allocation
         let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_static(Some("-"));
         let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_static(Some("-"));
         let decimal = DecimalFormatter::new_static(Some("-"));
@@ -585,6 +586,21 @@ mod tests {
     }
 
     #[test]
+    fn test_owned_separator() {
+        // Test new_owned with runtime strings
+        let runtime_sep = String::from(" | ");
+        let formatter = DecimalFormatter::new_owned(Some(runtime_sep));
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18")
+        );
+
+        // Test with None (should use default)
+        let formatter = OctalFormatter::new_owned(None);
+        assert_eq!(formatter.get_separator(), ":");
+    }
+
+    #[test]
     fn test_from_cow() {
         use std::borrow::Cow;
 
@@ -613,6 +629,84 @@ mod tests {
         assert_eq!(binary.get_separator(), ",");
     }
 
+    #[test]
+    fn test_format_byte() {
+        // Test individual byte formatting
+        let decimal = DecimalFormatter::new_default();
+        let octal = OctalFormatter::new_default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::new_default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::new_default();
+        let binary = BinaryFormatter::new_default();
+
+        let byte = 255u8;
+        assert_eq!(decimal.format_byte(&byte), "255");
+        assert_eq!(octal.format_byte(&byte), "377");
+        assert_eq!(uppercase_hex.format_byte(&byte), "FF");
+        assert_eq!(lowercase_hex.format_byte(&byte), "ff");
+        assert_eq!(binary.format_byte(&byte), "11111111");
+
+        let byte = 0u8;
+        assert_eq!(decimal.format_byte(&byte), "0");
+        assert_eq!(octal.format_byte(&byte), "000");
+        assert_eq!(uppercase_hex.format_byte(&byte), "00");
+        assert_eq!(lowercase_hex.format_byte(&byte), "00");
+        assert_eq!(binary.format_byte(&byte), "00000000");
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        let formatter = DecimalFormatter::new_default();
+
+        // Empty buffer
+        assert_eq!(formatter.format_buffer(&[]), "");
+
+        // Single byte
+        assert_eq!(formatter.format_buffer(&[42]), "42");
+
+        // Multi-character separator
+        let formatter = DecimalFormatter::new(Some(" -> "));
+        assert_eq!(formatter.format_buffer(&[1, 2, 3]), "1 -> 2 -> 3");
+
+        // Empty string separator
+        let formatter = DecimalFormatter::new(Some(""));
+        assert_eq!(formatter.format_buffer(&[10, 11, 12]), "101112");
+    }
+
+    #[test]
+    fn test_default_trait() {
+        // Test Default implementation
+        let decimal = DecimalFormatter::default();
+        let octal = OctalFormatter::default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::default();
+        let binary = BinaryFormatter::default();
+
+        // All should use default separator
+        assert_eq!(decimal.get_separator(), ":");
+        assert_eq!(octal.get_separator(), ":");
+        assert_eq!(uppercase_hex.get_separator(), ":");
+        assert_eq!(lowercase_hex.get_separator(), ":");
+        assert_eq!(binary.get_separator(), ":");
+    }
+
+    #[test]
+    fn test_clone() {
+        // Test Clone trait
+        let original = DecimalFormatter::new(Some("-"));
+        let cloned = original.clone();
+
+        assert_eq!(original.get_separator(), cloned.get_separator());
+        assert_eq!(
+            original.format_buffer(&[1, 2, 3]),
+            cloned.format_buffer(&[1, 2, 3])
+        );
+
+        // Verify they're independent (though Cow makes this subtle)
+        let original_result = original.format_buffer(&[10, 20]);
+        let cloned_result = cloned.format_buffer(&[10, 20]);
+        assert_eq!(original_result, cloned_result);
+    }
+
     fn assert_unpin<T: Unpin>() {}
 
     #[test]
@@ -626,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construction.
         let lowercase_hexadecimal: Box<dyn BufferFormatter> =
             Box::new(LowercaseHexadecimalFormatter::new(None));
         let uppercase_hexadecimal: Box<dyn BufferFormatter> =
@@ -636,20 +730,20 @@ mod tests {
         let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
 
         // Assert that trait object methods are dispatchable.
-        _ = lowercase_hexadecimal.get_separator();
-        _ = lowercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(lowercase_hexadecimal.get_separator(), ":");
+        assert!(!lowercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = uppercase_hexadecimal.get_separator();
-        _ = uppercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(uppercase_hexadecimal.get_separator(), ":");
+        assert!(!uppercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = decimal.get_separator();
-        _ = decimal.format_buffer(b"qwertyuiop");
+        assert_eq!(decimal.get_separator(), ":");
+        assert!(!decimal.format_buffer(b"test").is_empty());
 
-        _ = octal.get_separator();
-        _ = octal.format_buffer(b"qwertyuiop");
+        assert_eq!(octal.get_separator(), ":");
+        assert!(!octal.format_buffer(b"test").is_empty());
 
-        _ = binary.get_separator();
-        _ = binary.format_buffer(b"qwertyuiop");
+        assert_eq!(binary.get_separator(), ":");
+        assert!(!binary.format_buffer(b"test").is_empty());
     }
 
     fn assert_buffer_formatter<T: BufferFormatter>() {}
