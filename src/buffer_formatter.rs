@@ -44,434 +44,156 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Macro for Formatter Generation
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+macro_rules! define_formatter {
+    (
+        $(#[$struct_meta:meta])*
+        $name:ident,
+        $format_expr:expr
+    ) => {
+        $(#[$struct_meta])*
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            separator: Cow<'static, str>,
+        }
+
+        impl $name {
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided borrowed separator. In case if provided
+            /// separator will be [`None`], than default separator (`:`) will be used.
+            pub fn new(provided_separator: Option<&str>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(|s| Cow::Owned(s.to_string()))
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
+
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided static borrowed separator. In case if provided
+            /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+            /// static string separators.
+            pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(Cow::Borrowed)
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
+
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided owned separator. In case if provided
+            /// separator will be [`None`], than default separator (`:`) will be used.
+            pub fn new_owned(provided_separator: Option<String>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(Cow::Owned)
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
+
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using default separator (`:`).
+            pub fn new_default() -> Self {
+                Self {
+                    separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+                }
+            }
+        }
+
+        impl BufferFormatter for $name {
+            #[inline]
+            fn get_separator(&self) -> &str {
+                &self.separator
+            }
+
+            #[inline]
+            fn format_byte(&self, byte: &u8) -> String {
+                $format_expr(byte)
+            }
+        }
+
+        impl BufferFormatter for Box<$name> {
+            #[inline]
+            fn get_separator(&self) -> &str {
+                (**self).get_separator()
+            }
+
+            #[inline]
+            fn format_byte(&self, byte: &u8) -> String {
+                (**self).format_byte(byte)
+            }
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self::new_default()
+            }
+        }
+
+        impl From<Cow<'static, str>> for $name {
+            fn from(separator: Cow<'static, str>) -> Self {
+                Self { separator }
+            }
+        }
+    };
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // DecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
-#[derive(Debug, Clone)]
-pub struct DecimalFormatter {
-    separator: Cow<'static, str>,
-}
-
-impl DecimalFormatter {
-    /// Construct a new instance of [`DecimalFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(|s| Cow::Owned(s.to_string()))
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`DecimalFormatter`] using provided static borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
-    /// static string separators.
-    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Borrowed)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`DecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self {
-            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
-        }
-    }
-}
-
-impl BufferFormatter for DecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        &self.separator
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte}")
-    }
-}
-
-impl BufferFormatter for Box<DecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for DecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-impl From<Cow<'static, str>> for DecimalFormatter {
-    fn from(separator: Cow<'static, str>) -> Self {
-        Self { separator }
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
+    DecimalFormatter,
+    |byte: &u8| format!("{byte}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OctalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
-#[derive(Debug, Clone)]
-pub struct OctalFormatter {
-    separator: Cow<'static, str>,
-}
-
-impl OctalFormatter {
-    /// Construct a new instance of [`OctalFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(|s| Cow::Owned(s.to_string()))
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`OctalFormatter`] using provided static borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
-    /// static string separators.
-    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Borrowed)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`OctalFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`OctalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self {
-            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
-        }
-    }
-}
-
-impl BufferFormatter for OctalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        &self.separator
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:03o}")
-    }
-}
-
-impl BufferFormatter for Box<OctalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for OctalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-impl From<Cow<'static, str>> for OctalFormatter {
-    fn from(separator: Cow<'static, str>) -> Self {
-        Self { separator }
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
+    OctalFormatter,
+    |byte: &u8| format!("{byte:03o}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // UppercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
-#[derive(Debug, Clone)]
-pub struct UppercaseHexadecimalFormatter {
-    separator: Cow<'static, str>,
-}
-
-impl UppercaseHexadecimalFormatter {
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(|s| Cow::Owned(s.to_string()))
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided static borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
-    /// static string separators.
-    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Borrowed)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self {
-            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
-        }
-    }
-}
-
-impl BufferFormatter for UppercaseHexadecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        &self.separator
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:02X}")
-    }
-}
-
-impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for UppercaseHexadecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-impl From<Cow<'static, str>> for UppercaseHexadecimalFormatter {
-    fn from(separator: Cow<'static, str>) -> Self {
-        Self { separator }
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
+    UppercaseHexadecimalFormatter,
+    |byte: &u8| format!("{byte:02X}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // LowercaseHexadecimalFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
-#[derive(Debug, Clone)]
-pub struct LowercaseHexadecimalFormatter {
-    separator: Cow<'static, str>,
-}
-
-impl LowercaseHexadecimalFormatter {
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(|s| Cow::Owned(s.to_string()))
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided static borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
-    /// static string separators.
-    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Borrowed)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self {
-            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
-        }
-    }
-}
-
-impl BufferFormatter for LowercaseHexadecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        &self.separator
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:02x}")
-    }
-}
-
-impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for LowercaseHexadecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-impl From<Cow<'static, str>> for LowercaseHexadecimalFormatter {
-    fn from(separator: Cow<'static, str>) -> Self {
-        Self { separator }
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
+    LowercaseHexadecimalFormatter,
+    |byte: &u8| format!("{byte:02x}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // BinaryFormatter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
-#[derive(Debug, Clone)]
-pub struct BinaryFormatter {
-    separator: Cow<'static, str>,
-}
-
-impl BinaryFormatter {
-    /// Construct a new instance of [`BinaryFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(|s| Cow::Owned(s.to_string()))
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`BinaryFormatter`] using provided static borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
-    /// static string separators.
-    pub fn new_static(provided_separator: Option<&'static str>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Borrowed)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`BinaryFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
-        }
-    }
-
-    /// Construct a new instance of [`BinaryFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self {
-            separator: Cow::Borrowed(DEFAULT_SEPARATOR),
-        }
-    }
-}
-
-impl BufferFormatter for BinaryFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        &self.separator
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:08b}")
-    }
-}
-
-impl BufferFormatter for Box<BinaryFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for BinaryFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-impl From<Cow<'static, str>> for BinaryFormatter {
-    fn from(separator: Cow<'static, str>) -> Self {
-        Self { separator }
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
+    BinaryFormatter,
+    |byte: &u8| format!("{byte:08b}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests
