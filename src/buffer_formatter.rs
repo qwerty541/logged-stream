@@ -63,7 +63,7 @@ macro_rules! define_formatter {
             /// Construct a new instance of
             #[doc = concat!("`", stringify!($name), "`")]
             /// using provided borrowed separator. In case if provided
-            /// separator will be [`None`], than default separator (`:`) will be used.
+            /// separator will be [`None`], then default separator (`:`) will be used.
             pub fn new(provided_separator: Option<&str>) -> Self {
                 Self {
                     separator: provided_separator
@@ -75,7 +75,7 @@ macro_rules! define_formatter {
             /// Construct a new instance of
             #[doc = concat!("`", stringify!($name), "`")]
             /// using provided static borrowed separator. In case if provided
-            /// separator will be [`None`], than default separator (`:`) will be used. This method avoids allocation for
+            /// separator will be [`None`], then default separator (`:`) will be used. This method avoids allocation for
             /// static string separators.
             pub fn new_static(provided_separator: Option<&'static str>) -> Self {
                 Self {
@@ -88,7 +88,7 @@ macro_rules! define_formatter {
             /// Construct a new instance of
             #[doc = concat!("`", stringify!($name), "`")]
             /// using provided owned separator. In case if provided
-            /// separator will be [`None`], than default separator (`:`) will be used.
+            /// separator will be [`None`], then default separator (`:`) will be used.
             pub fn new_owned(provided_separator: Option<String>) -> Self {
                 Self {
                     separator: provided_separator
