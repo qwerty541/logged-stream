@@ -142,6 +142,30 @@ macro_rules! define_formatter {
                 Self { separator }
             }
         }
+
+        impl From<&'static str> for $name {
+            fn from(separator: &'static str) -> Self {
+                Self::new_static(Some(separator))
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(separator: String) -> Self {
+                Self::new_owned(Some(separator))
+            }
+        }
+
+        impl From<Option<&'static str>> for $name {
+            fn from(separator: Option<&'static str>) -> Self {
+                Self::new_static(separator)
+            }
+        }
+
+        impl From<Option<String>> for $name {
+            fn from(separator: Option<String>) -> Self {
+                Self::new_owned(separator)
+            }
+        }
     };
 }
 
@@ -333,6 +357,105 @@ mod tests {
 
         assert_eq!(lowercase_hex.get_separator(), " ");
         assert_eq!(binary.get_separator(), ",");
+    }
+
+    #[test]
+    fn test_from_static_str() {
+        // Test From<&'static str>
+        let formatter = DecimalFormatter::from("-");
+        assert_eq!(formatter.get_separator(), "-");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10-11-12-13-14-15-16-17-18")
+        );
+
+        // Test using .into()
+        let formatter: OctalFormatter = " | ".into();
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = " ".into();
+        let _octal: OctalFormatter = ",".into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = "-".into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = "::".into();
+        let _binary: BinaryFormatter = "_".into();
+    }
+
+    #[test]
+    fn test_from_string() {
+        // Test From<String>
+        let separator = String::from(" -> ");
+        let formatter = DecimalFormatter::from(separator);
+        assert_eq!(formatter.get_separator(), " -> ");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18")
+        );
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = String::from(" ").into();
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A 0B 0C 0D 0E 0F 10 11 12")
+        );
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = String::from("-").into();
+        let _octal: OctalFormatter = String::from(",").into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = String::from("::").into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = String::from(" | ").into();
+        let _binary: BinaryFormatter = String::from("_").into();
+    }
+
+    #[test]
+    fn test_from_option_static_str() {
+        // Test From<Option<&'static str>> with Some
+        let formatter = DecimalFormatter::from(Some("-"));
+        assert_eq!(formatter.get_separator(), "-");
+
+        // Test From<Option<&'static str>> with None (should use default)
+        let formatter = OctalFormatter::from(None as Option<&'static str>);
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Some(" ").into();
+        assert_eq!(formatter.get_separator(), " ");
+
+        let formatter: LowercaseHexadecimalFormatter = (None as Option<&'static str>).into();
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = Some("->").into();
+        let _octal: OctalFormatter = (None as Option<&'static str>).into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = Some(",").into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = Some("::").into();
+        let _binary: BinaryFormatter = (None as Option<&'static str>).into();
+    }
+
+    #[test]
+    fn test_from_option_string() {
+        // Test From<Option<String>> with Some
+        let separator = Some(String::from(" | "));
+        let formatter = DecimalFormatter::from(separator);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test From<Option<String>> with None (should use default)
+        let formatter = BinaryFormatter::from(None as Option<String>);
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Some(String::from("-")).into();
+        assert_eq!(formatter.get_separator(), "-");
+
+        let formatter: OctalFormatter = (None as Option<String>).into();
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = Some(String::from("::")).into();
+        let _octal: OctalFormatter = (None as Option<String>).into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = Some(String::from(" ")).into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = Some(String::from(",")).into();
+        let _binary: BinaryFormatter = (None as Option<String>).into();
     }
 
     #[test]
