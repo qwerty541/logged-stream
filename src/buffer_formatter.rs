@@ -44,7 +44,7 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
     }
 }
 
-impl<T: BufferFormatter + ?Sized + Sync + 'static> BufferFormatter for &'static T {
+impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for &'static T {
     #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
