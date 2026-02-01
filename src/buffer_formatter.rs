@@ -656,6 +656,14 @@ mod tests {
         assert_send::<Box<DecimalFormatter>>();
         assert_send::<Box<OctalFormatter>>();
         assert_send::<Box<BinaryFormatter>>();
+
+        // Arc wrapper types
+        assert_send::<std::sync::Arc<LowercaseHexadecimalFormatter>>();
+        assert_send::<std::sync::Arc<UppercaseHexadecimalFormatter>>();
+        assert_send::<std::sync::Arc<DecimalFormatter>>();
+        assert_send::<std::sync::Arc<OctalFormatter>>();
+        assert_send::<std::sync::Arc<BinaryFormatter>>();
+        assert_send::<std::sync::Arc<dyn BufferFormatter + Sync>>();
     }
 
     #[test]
