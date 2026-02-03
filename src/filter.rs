@@ -107,7 +107,7 @@ impl RecordFilter for Box<RecordKindFilter> {
 ///
 /// // Create a filter that accepts only Read operations
 /// let filter = AllFilter::new(vec![
-///     Box::new(RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write])),
+///     Box::new(RecordKindFilter::new(&[RecordKind::Read])),
 /// ]);
 ///
 /// let read_record = Record::new(RecordKind::Read, String::from("data"));
@@ -443,8 +443,8 @@ mod tests {
 
     #[test]
     fn test_nested_composite_filters() {
-        // (Read OR Write) AND (NOT Drop)
-        // Simulated as: AllFilter containing AnyFilter for (Read OR Write)
+        // (Read OR Write)
+        // Implemented as: AllFilter containing AnyFilter for (Read OR Write)
         let filter = AllFilter::new(vec![Box::new(AnyFilter::new(vec![
             Box::new(RecordKindFilter::new(&[RecordKind::Read])),
             Box::new(RecordKindFilter::new(&[RecordKind::Write])),
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construct.
         let default: Box<dyn RecordFilter> = Box::<DefaultFilter>::default();
         let record_kind: Box<dyn RecordFilter> = Box::new(RecordKindFilter::new(&[]));
         let all: Box<dyn RecordFilter> = Box::new(AllFilter::new(vec![]));
