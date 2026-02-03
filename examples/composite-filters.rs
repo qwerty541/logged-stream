@@ -1,0 +1,133 @@
+use logged_stream::AllFilter;
+use logged_stream::AnyFilter;
+use logged_stream::ConsoleLogger;
+use logged_stream::DefaultFilter;
+use logged_stream::LoggedStream;
+use logged_stream::LowercaseHexadecimalFormatter;
+use logged_stream::RecordKind;
+use logged_stream::RecordKindFilter;
+use std::env;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Write;
+
+/// This example demonstrates the usage of composite filters (AllFilter and AnyFilter)
+/// to create complex filtering logic for LoggedStream.
+fn main() {
+    // Set up logging
+    env::set_var("RUST_LOG", "debug");
+    env_logger::builder()
+        .default_format()
+        .format_timestamp_millis()
+        .init();
+
+    println!("=== Composite Filters Example ===\n");
+
+    // Example 1: Using AnyFilter to accept Read OR Write operations
+    println!("Example 1: AnyFilter - Accept Read OR Write operations");
+    println!("-------------------------------------------------------");
+    let any_filter = AnyFilter::new(vec![
+        Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+        Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+    ]);
+
+    let data = vec![0x01, 0x02, 0x03, 0x04];
+    let mut stream = LoggedStream::new(
+        Cursor::new(data),
+        LowercaseHexadecimalFormatter::default(),
+        any_filter,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+
+    let mut buffer = [0u8; 4];
+    stream.read_exact(&mut buffer).unwrap();
+    // This will log the Read operation but not Open
+    println!();
+
+    // Example 2: Using AllFilter to require multiple conditions
+    println!("Example 2: AllFilter - Multiple conditions must all be true");
+    println!("-----------------------------------------------------------");
+    // In this simplified example, both filters check for Read operations
+    // In practice, you might combine different types of filters
+    let all_filter = AllFilter::new(vec![
+        Box::new(RecordKindFilter::new(&[
+            RecordKind::Read,
+            RecordKind::Write,
+        ])),
+        Box::new(RecordKindFilter::new(&[
+            RecordKind::Read,
+            RecordKind::Error,
+        ])),
+    ]);
+
+    let data2 = vec![0xAA, 0xBB, 0xCC, 0xDD];
+    let mut stream2 = LoggedStream::new(
+        Cursor::new(data2),
+        LowercaseHexadecimalFormatter::default(),
+        all_filter,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+
+    let mut buffer2 = [0u8; 4];
+    stream2.read_exact(&mut buffer2).unwrap();
+    // This will log the Read operation (accepted by both filters)
+    println!();
+
+    // Example 3: Nested composite filters - Complex logic
+    println!("Example 3: Nested Filters - (Read OR Write) combined with other conditions");
+    println!("--------------------------------------------------------------------------");
+    let nested_filter = AllFilter::new(vec![
+        // Accept Read OR Write
+        Box::new(AnyFilter::new(vec![
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+        ])),
+        // And also must not be Drop (we use DefaultFilter as placeholder here)
+        Box::new(DefaultFilter),
+    ]);
+
+    let data3 = vec![0x11, 0x22, 0x33, 0x44];
+    let mut stream3 = LoggedStream::new(
+        Cursor::new(Vec::<u8>::new()),
+        LowercaseHexadecimalFormatter::default(),
+        nested_filter,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+
+    stream3.write_all(&data3).unwrap();
+    // This will log the Write operation
+    println!();
+
+    // Example 4: Empty filters behavior
+    println!("Example 4: Edge Cases - Empty Filter Collections");
+    println!("------------------------------------------------");
+
+    println!("AllFilter with empty vec (accepts everything - vacuously true):");
+    let empty_all = AllFilter::new(vec![]);
+    let data4 = vec![0xFF];
+    let mut stream4 = LoggedStream::new(
+        Cursor::new(data4),
+        LowercaseHexadecimalFormatter::default(),
+        empty_all,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+    let mut buffer4 = [0u8; 1];
+    stream4.read_exact(&mut buffer4).unwrap();
+    println!();
+
+    println!("AnyFilter with empty vec (rejects everything):");
+    let empty_any = AnyFilter::new(vec![]);
+    let data5 = vec![0xEE];
+    let mut stream5 = LoggedStream::new(
+        Cursor::new(data5),
+        LowercaseHexadecimalFormatter::default(),
+        empty_any,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+    let mut buffer5 = [0u8; 1];
+    stream5.read_exact(&mut buffer5).unwrap();
+    println!("(No log output expected - filter rejects everything)");
+    println!();
+
+    println!("=== Example Complete ===");
+}
