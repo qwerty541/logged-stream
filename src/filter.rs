@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construct.
         let default: Box<dyn RecordFilter> = Box::<DefaultFilter>::default();
         let record_kind: Box<dyn RecordFilter> = Box::new(RecordKindFilter::new(&[]));
         let all: Box<dyn RecordFilter> = Box::new(AllFilter::new(vec![]));
