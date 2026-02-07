@@ -106,7 +106,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Cache cargo registry and dependencies
+      - name: Cache cargo registry and git db
         uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: |
