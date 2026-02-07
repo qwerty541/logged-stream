@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 const DEFAULT_SEPARATOR: &str = ":";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,309 +44,164 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// DecimalFormatter
+// Macro for Formatter Generation
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
-#[derive(Debug, Clone)]
-pub struct DecimalFormatter {
-    separator: String,
-}
-
-impl DecimalFormatter {
-    /// Construct a new instance of [`DecimalFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
-    }
-
-    /// Construct a new instance of [`DecimalFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+macro_rules! define_formatter {
+    (
+        $(#[$struct_meta:meta])*
+        $name:ident,
+        $format_expr:expr
+    ) => {
+        $(#[$struct_meta])*
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            separator: Cow<'static, str>,
         }
-    }
 
-    /// Construct a new instance of [`DecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self::new_owned(None)
-    }
-}
+        impl $name {
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided borrowed separator. In case if provided
+            /// separator will be [`None`], then default separator (`:`) will be used.
+            pub fn new(provided_separator: Option<&str>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(|s| Cow::Owned(s.to_string()))
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
 
-impl BufferFormatter for DecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        self.separator.as_str()
-    }
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided static borrowed separator. In case if provided
+            /// separator will be [`None`], then default separator (`:`) will be used. This method avoids allocation for
+            /// static string separators.
+            pub fn new_static(provided_separator: Option<&'static str>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(Cow::Borrowed)
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
 
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte}")
-    }
-}
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using provided owned separator. In case if provided
+            /// separator will be [`None`], then default separator (`:`) will be used.
+            pub fn new_owned(provided_separator: Option<String>) -> Self {
+                Self {
+                    separator: provided_separator
+                        .map(Cow::Owned)
+                        .unwrap_or(Cow::Borrowed(DEFAULT_SEPARATOR)),
+                }
+            }
 
-impl BufferFormatter for Box<DecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for DecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// OctalFormatter
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
-#[derive(Debug, Clone)]
-pub struct OctalFormatter {
-    separator: String,
-}
-
-impl OctalFormatter {
-    /// Construct a new instance of [`OctalFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
-    }
-
-    /// Construct a new instance of [`OctalFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            /// Construct a new instance of
+            #[doc = concat!("`", stringify!($name), "`")]
+            /// using default separator (`:`).
+            pub fn new_default() -> Self {
+                Self {
+                    separator: Cow::Borrowed(DEFAULT_SEPARATOR),
+                }
+            }
         }
-    }
 
-    /// Construct a new instance of [`OctalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self::new_owned(None)
-    }
-}
+        impl BufferFormatter for $name {
+            #[inline]
+            fn get_separator(&self) -> &str {
+                &self.separator
+            }
 
-impl BufferFormatter for OctalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        self.separator.as_str()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:03o}")
-    }
-}
-
-impl BufferFormatter for Box<OctalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for OctalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// UppercaseHexadecimalFormatter
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
-#[derive(Debug, Clone)]
-pub struct UppercaseHexadecimalFormatter {
-    separator: String,
-}
-
-impl UppercaseHexadecimalFormatter {
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
-    }
-
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using provided owned separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            #[inline]
+            fn format_byte(&self, byte: &u8) -> String {
+                $format_expr(byte)
+            }
         }
-    }
 
-    /// Construct a new instance of [`UppercaseHexadecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self::new_owned(None)
-    }
-}
+        impl BufferFormatter for Box<$name> {
+            #[inline]
+            fn get_separator(&self) -> &str {
+                (**self).get_separator()
+            }
 
-impl BufferFormatter for UppercaseHexadecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        self.separator.as_str()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:02X}")
-    }
-}
-
-impl BufferFormatter for Box<UppercaseHexadecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for UppercaseHexadecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// LowercaseHexadecimalFormatter
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexdecimal number system.
-#[derive(Debug, Clone)]
-pub struct LowercaseHexadecimalFormatter {
-    separator: String,
-}
-
-impl LowercaseHexadecimalFormatter {
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided borrowed separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
-    }
-
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using provided owned separator. In case
-    /// if provided separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+            #[inline]
+            fn format_byte(&self, byte: &u8) -> String {
+                (**self).format_byte(byte)
+            }
         }
-    }
 
-    /// Construct a new instance of [`LowercaseHexadecimalFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self::new_owned(None)
-    }
-}
-
-impl BufferFormatter for LowercaseHexadecimalFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        self.separator.as_str()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:02x}")
-    }
-}
-
-impl BufferFormatter for Box<LowercaseHexadecimalFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl Default for LowercaseHexadecimalFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// BinaryFormatter
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
-#[derive(Debug, Clone)]
-pub struct BinaryFormatter {
-    separator: String,
-}
-
-impl BinaryFormatter {
-    /// Construct a new instance of [`BinaryFormatter`] using provided borrowed separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new(provided_separator: Option<&str>) -> Self {
-        Self::new_owned(provided_separator.map(ToString::to_string))
-    }
-
-    /// Construct a new instance of [`BinaryFormatter`] using provided owned separator. In case if provided
-    /// separator will be [`None`], than default separator (`:`) will be used.
-    pub fn new_owned(provided_separator: Option<String>) -> Self {
-        Self {
-            separator: provided_separator.unwrap_or(DEFAULT_SEPARATOR.to_string()),
+        impl Default for $name {
+            fn default() -> Self {
+                Self::new_default()
+            }
         }
-    }
 
-    /// Construct a new instance of [`BinaryFormatter`] using default separator (`:`).
-    pub fn new_default() -> Self {
-        Self::new_owned(None)
-    }
+        impl From<Cow<'static, str>> for $name {
+            fn from(separator: Cow<'static, str>) -> Self {
+                Self { separator }
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(separator: &str) -> Self {
+                Self::new(Some(separator))
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(separator: String) -> Self {
+                Self::new_owned(Some(separator))
+            }
+        }
+
+        impl From<Option<&str>> for $name {
+            fn from(separator: Option<&str>) -> Self {
+                Self::new(separator)
+            }
+        }
+
+        impl From<Option<String>> for $name {
+            fn from(separator: Option<String>) -> Self {
+                Self::new_owned(separator)
+            }
+        }
+    };
 }
 
-impl BufferFormatter for BinaryFormatter {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        self.separator.as_str()
-    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Formatters definitions
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        format!("{byte:08b}")
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in decimal number system.
+    DecimalFormatter,
+    |byte: &u8| format!("{byte}")
+);
 
-impl BufferFormatter for Box<BinaryFormatter> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in octal number system.
+    OctalFormatter,
+    |byte: &u8| format!("{byte:03o}")
+);
 
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
+    UppercaseHexadecimalFormatter,
+    |byte: &u8| format!("{byte:02X}")
+);
 
-impl Default for BinaryFormatter {
-    fn default() -> Self {
-        Self::new_default()
-    }
-}
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in hexadecimal number system.
+    LowercaseHexadecimalFormatter,
+    |byte: &u8| format!("{byte:02x}")
+);
+
+define_formatter!(
+    /// This implementation of [`BufferFormatter`] trait formats provided bytes buffer in binary number system.
+    BinaryFormatter,
+    |byte: &u8| format!("{byte:08b}")
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests
@@ -425,6 +282,276 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_static_separator() {
+        // new_static should produce same results as new, just without allocation
+        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_static(Some("-"));
+        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_static(Some("-"));
+        let decimal = DecimalFormatter::new_static(Some("-"));
+        let octal = OctalFormatter::new_static(Some("-"));
+        let binary = BinaryFormatter::new_static(Some("-"));
+
+        assert_eq!(
+            lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0a-0b-0c-0d-0e-0f-10-11-12")
+        );
+        assert_eq!(
+            uppercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+        assert_eq!(
+            decimal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10-11-12-13-14-15-16-17-18")
+        );
+        assert_eq!(
+            octal.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("012-013-014-015-016-017-020-021-022")
+        );
+        assert_eq!(
+            binary.format_buffer(FORMATTING_TEST_VALUES),
+            String::from(
+                "00001010-00001011-00001100-00001101-00001110-00001111-00010000-00010001-00010010"
+            )
+        );
+    }
+
+    #[test]
+    fn test_owned_separator() {
+        // Test new_owned with runtime strings
+        let runtime_sep = String::from(" | ");
+        let formatter = DecimalFormatter::new_owned(Some(runtime_sep));
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18")
+        );
+
+        // Test with None (should use default)
+        let formatter = OctalFormatter::new_owned(None);
+        assert_eq!(formatter.get_separator(), ":");
+    }
+
+    #[test]
+    fn test_from_cow() {
+        use std::borrow::Cow;
+
+        // Test with borrowed Cow
+        let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
+        let formatter = DecimalFormatter::from(sep_borrowed);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test with owned Cow
+        let sep_owned: Cow<'static, str> = Cow::Owned(String::from(" | "));
+        let formatter = OctalFormatter::from(sep_owned);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Cow::Borrowed("-").into();
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A-0B-0C-0D-0E-0F-10-11-12")
+        );
+
+        // Test all formatters
+        let lowercase_hex: LowercaseHexadecimalFormatter = Cow::Borrowed(" ").into();
+        let binary: BinaryFormatter = Cow::<'static, str>::Owned(String::from(",")).into();
+
+        assert_eq!(lowercase_hex.get_separator(), " ");
+        assert_eq!(binary.get_separator(), ",");
+    }
+
+    #[test]
+    fn test_from_static_str() {
+        // Test From<&str> with string literals
+        let formatter = DecimalFormatter::from("-");
+        assert_eq!(formatter.get_separator(), "-");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10-11-12-13-14-15-16-17-18")
+        );
+
+        // Test using .into()
+        let formatter: OctalFormatter = " | ".into();
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test with runtime &str (this is the key improvement)
+        let runtime_string = String::from(" -> ");
+        let runtime_str: &str = runtime_string.as_str();
+        let formatter: UppercaseHexadecimalFormatter = runtime_str.into();
+        assert_eq!(formatter.get_separator(), " -> ");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A -> 0B -> 0C -> 0D -> 0E -> 0F -> 10 -> 11 -> 12")
+        );
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = " ".into();
+        let _octal: OctalFormatter = ",".into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = "-".into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = "::".into();
+        let _binary: BinaryFormatter = "_".into();
+    }
+
+    #[test]
+    fn test_from_string() {
+        // Test From<String>
+        let separator = String::from(" -> ");
+        let formatter = DecimalFormatter::from(separator);
+        assert_eq!(formatter.get_separator(), " -> ");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18")
+        );
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = String::from(" ").into();
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("0A 0B 0C 0D 0E 0F 10 11 12")
+        );
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = String::from("-").into();
+        let _octal: OctalFormatter = String::from(",").into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = String::from("::").into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = String::from(" | ").into();
+        let _binary: BinaryFormatter = String::from("_").into();
+    }
+
+    #[test]
+    fn test_from_option_static_str() {
+        // Test From<Option<&str>> with Some
+        let formatter = DecimalFormatter::from(Some("-"));
+        assert_eq!(formatter.get_separator(), "-");
+
+        // Test From<Option<&str>> with None (should use default)
+        let formatter = OctalFormatter::from(None as Option<&str>);
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Some(" ").into();
+        assert_eq!(formatter.get_separator(), " ");
+
+        let formatter: LowercaseHexadecimalFormatter = (None as Option<&str>).into();
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test with runtime &str
+        let runtime_string = String::from(" | ");
+        let runtime_str: &str = runtime_string.as_str();
+        let formatter: BinaryFormatter = Some(runtime_str).into();
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = Some("->").into();
+        let _octal: OctalFormatter = (None as Option<&str>).into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = Some(",").into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = Some("::").into();
+        let _binary: BinaryFormatter = (None as Option<&str>).into();
+    }
+
+    #[test]
+    fn test_from_option_string() {
+        // Test From<Option<String>> with Some
+        let separator = Some(String::from(" | "));
+        let formatter = DecimalFormatter::from(separator);
+        assert_eq!(formatter.get_separator(), " | ");
+
+        // Test From<Option<String>> with None (should use default)
+        let formatter = BinaryFormatter::from(None as Option<String>);
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test using .into()
+        let formatter: UppercaseHexadecimalFormatter = Some(String::from("-")).into();
+        assert_eq!(formatter.get_separator(), "-");
+
+        let formatter: OctalFormatter = (None as Option<String>).into();
+        assert_eq!(formatter.get_separator(), ":");
+
+        // Test all formatter types
+        let _decimal: DecimalFormatter = Some(String::from("::")).into();
+        let _octal: OctalFormatter = (None as Option<String>).into();
+        let _uppercase_hex: UppercaseHexadecimalFormatter = Some(String::from(" ")).into();
+        let _lowercase_hex: LowercaseHexadecimalFormatter = Some(String::from(",")).into();
+        let _binary: BinaryFormatter = (None as Option<String>).into();
+    }
+
+    #[test]
+    fn test_format_byte() {
+        // Test individual byte formatting
+        let decimal = DecimalFormatter::new_default();
+        let octal = OctalFormatter::new_default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::new_default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::new_default();
+        let binary = BinaryFormatter::new_default();
+
+        let byte = 255u8;
+        assert_eq!(decimal.format_byte(&byte), "255");
+        assert_eq!(octal.format_byte(&byte), "377");
+        assert_eq!(uppercase_hex.format_byte(&byte), "FF");
+        assert_eq!(lowercase_hex.format_byte(&byte), "ff");
+        assert_eq!(binary.format_byte(&byte), "11111111");
+
+        let byte = 0u8;
+        assert_eq!(decimal.format_byte(&byte), "0");
+        assert_eq!(octal.format_byte(&byte), "000");
+        assert_eq!(uppercase_hex.format_byte(&byte), "00");
+        assert_eq!(lowercase_hex.format_byte(&byte), "00");
+        assert_eq!(binary.format_byte(&byte), "00000000");
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        let formatter = DecimalFormatter::new_default();
+
+        // Empty buffer
+        assert_eq!(formatter.format_buffer(&[]), "");
+
+        // Single byte
+        assert_eq!(formatter.format_buffer(&[42]), "42");
+
+        // Multi-character separator
+        let formatter = DecimalFormatter::new(Some(" -> "));
+        assert_eq!(formatter.format_buffer(&[1, 2, 3]), "1 -> 2 -> 3");
+
+        // Empty string separator
+        let formatter = DecimalFormatter::new(Some(""));
+        assert_eq!(formatter.format_buffer(&[10, 11, 12]), "101112");
+    }
+
+    #[test]
+    fn test_default_trait() {
+        // Test Default implementation
+        let decimal = DecimalFormatter::default();
+        let octal = OctalFormatter::default();
+        let uppercase_hex = UppercaseHexadecimalFormatter::default();
+        let lowercase_hex = LowercaseHexadecimalFormatter::default();
+        let binary = BinaryFormatter::default();
+
+        // All should use default separator
+        assert_eq!(decimal.get_separator(), ":");
+        assert_eq!(octal.get_separator(), ":");
+        assert_eq!(uppercase_hex.get_separator(), ":");
+        assert_eq!(lowercase_hex.get_separator(), ":");
+        assert_eq!(binary.get_separator(), ":");
+    }
+
+    #[test]
+    fn test_clone() {
+        // Test Clone trait
+        let original = DecimalFormatter::new(Some("-"));
+        let cloned = original.clone();
+
+        assert_eq!(original.get_separator(), cloned.get_separator());
+        assert_eq!(
+            original.format_buffer(&[1, 2, 3]),
+            cloned.format_buffer(&[1, 2, 3])
+        );
+
+        // Verify they're independent (though Cow makes this subtle)
+        let original_result = original.format_buffer(&[10, 20]);
+        let cloned_result = cloned.format_buffer(&[10, 20]);
+        assert_eq!(original_result, cloned_result);
+    }
+
     fn assert_unpin<T: Unpin>() {}
 
     #[test]
@@ -438,7 +565,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construction.
         let lowercase_hexadecimal: Box<dyn BufferFormatter> =
             Box::new(LowercaseHexadecimalFormatter::new(None));
         let uppercase_hexadecimal: Box<dyn BufferFormatter> =
@@ -448,20 +575,20 @@ mod tests {
         let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
 
         // Assert that trait object methods are dispatchable.
-        _ = lowercase_hexadecimal.get_separator();
-        _ = lowercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(lowercase_hexadecimal.get_separator(), ":");
+        assert!(!lowercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = uppercase_hexadecimal.get_separator();
-        _ = uppercase_hexadecimal.format_buffer(b"qwertyuiop");
+        assert_eq!(uppercase_hexadecimal.get_separator(), ":");
+        assert!(!uppercase_hexadecimal.format_buffer(b"test").is_empty());
 
-        _ = decimal.get_separator();
-        _ = decimal.format_buffer(b"qwertyuiop");
+        assert_eq!(decimal.get_separator(), ":");
+        assert!(!decimal.format_buffer(b"test").is_empty());
 
-        _ = octal.get_separator();
-        _ = octal.format_buffer(b"qwertyuiop");
+        assert_eq!(octal.get_separator(), ":");
+        assert!(!octal.format_buffer(b"test").is_empty());
 
-        _ = binary.get_separator();
-        _ = binary.format_buffer(b"qwertyuiop");
+        assert_eq!(binary.get_separator(), ":");
+        assert!(!binary.format_buffer(b"test").is_empty());
     }
 
     fn assert_buffer_formatter<T: BufferFormatter>() {}
