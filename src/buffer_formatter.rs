@@ -259,7 +259,9 @@ mod tests {
     use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
     use crate::buffer_formatter::UppercaseHexadecimalFormatter;
+    use std::borrow::Cow;
     use std::sync::Arc;
+    use std::thread;
 
     const FORMATTING_TEST_VALUES: &[u8] = &[10, 11, 12, 13, 14, 15, 16, 17, 18];
 
@@ -377,8 +379,6 @@ mod tests {
 
     #[test]
     fn test_from_cow() {
-        use std::borrow::Cow;
-
         // Test with borrowed Cow
         let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
         let formatter = DecimalFormatter::from(sep_borrowed);
@@ -764,8 +764,6 @@ mod tests {
 
     #[test]
     fn test_arc_thread_safety() {
-        use std::thread;
-
         // Test that Arc<T: BufferFormatter> can be shared across threads
         let formatter = Arc::new(DecimalFormatter::new(Some(" | ")));
         let formatter_clone = Arc::clone(&formatter);
