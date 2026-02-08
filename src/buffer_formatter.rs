@@ -170,7 +170,7 @@ macro_rules! define_formatter {
 
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}(separator: \"{}\")", stringify!($name), self.separator)
+                write!(f, "{}(separator: {:?})", stringify!($name), self.separator)
             }
         }
     };
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        // Test Display implementation
+        // Test Display implementation with regular separators
         let formatter = DecimalFormatter::new(Some("-"));
         assert_eq!(
             format!("{}", formatter),
@@ -746,5 +746,71 @@ mod tests {
             output,
             "Using formatter: DecimalFormatter(separator: \"::\")"
         );
+    }
+
+    #[test]
+    fn test_display_with_special_characters() {
+        // Test Display implementation properly escapes special characters
+        // This prevents log forging and ensures unambiguous output
+
+        // Test newline character
+        let formatter = DecimalFormatter::new(Some("\n"));
+        assert_eq!(
+            format!("{}", formatter),
+            "DecimalFormatter(separator: \"\\n\")"
+        );
+
+        // Test tab character
+        let formatter = OctalFormatter::new(Some("\t"));
+        assert_eq!(
+            format!("{}", formatter),
+            "OctalFormatter(separator: \"\\t\")"
+        );
+
+        // Test carriage return
+        let formatter = UppercaseHexadecimalFormatter::new(Some("\r"));
+        assert_eq!(
+            format!("{}", formatter),
+            "UppercaseHexadecimalFormatter(separator: \"\\r\")"
+        );
+
+        // Test double quote character
+        let formatter = LowercaseHexadecimalFormatter::new(Some("\""));
+        assert_eq!(
+            format!("{}", formatter),
+            "LowercaseHexadecimalFormatter(separator: \"\\\"\")"
+        );
+
+        // Test backslash character
+        let formatter = BinaryFormatter::new(Some("\\"));
+        assert_eq!(
+            format!("{}", formatter),
+            "BinaryFormatter(separator: \"\\\\\")"
+        );
+
+        // Test multiple special characters combined
+        let formatter = DecimalFormatter::new(Some("\n\t\r\"\\"));
+        assert_eq!(
+            format!("{}", formatter),
+            "DecimalFormatter(separator: \"\\n\\t\\r\\\"\\\\\")"
+        );
+
+        // Test potential log forging attempt
+        let malicious_sep = "\nINFO: Fake log entry";
+        let formatter = OctalFormatter::new(Some(malicious_sep));
+        let output = format!("{}", formatter);
+        // The newline should be escaped, preventing it from creating a new log line
+        assert!(output.contains("\\n"));
+        assert!(!output.contains("\nINFO"));
+        assert_eq!(
+            output,
+            "OctalFormatter(separator: \"\\nINFO: Fake log entry\")"
+        );
+
+        // Test unicode and other edge cases
+        let formatter = UppercaseHexadecimalFormatter::new(Some("→\u{200B}←")); // Arrow with zero-width space
+        let output = format!("{}", formatter);
+        // Should contain the escaped or properly formatted unicode
+        assert!(output.contains("separator:"));
     }
 }
