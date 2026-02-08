@@ -57,19 +57,7 @@ impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for &'static T {
     }
 }
 
-impl<T: BufferFormatter + Sync> BufferFormatter for Arc<T> {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
-impl BufferFormatter for Arc<dyn BufferFormatter + Sync> {
+impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for Arc<T> {
     #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
