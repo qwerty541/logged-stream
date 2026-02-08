@@ -686,7 +686,14 @@ mod tests {
 
     #[test]
     fn test_reference_impl() {
-        // Test &'static T implementation
+        // Test &'static T implementation - compile-time assertion
+        assert_buffer_formatter::<&'static DecimalFormatter>();
+        assert_buffer_formatter::<&'static OctalFormatter>();
+        assert_buffer_formatter::<&'static UppercaseHexadecimalFormatter>();
+        assert_buffer_formatter::<&'static LowercaseHexadecimalFormatter>();
+        assert_buffer_formatter::<&'static BinaryFormatter>();
+
+        // Test runtime behavior with &'static T
         static FORMATTER: DecimalFormatter = DecimalFormatter {
             separator: std::borrow::Cow::Borrowed("-"),
         };
