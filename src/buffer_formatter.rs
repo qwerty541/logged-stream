@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt;
 use std::sync::Arc;
 
 const DEFAULT_SEPARATOR: &str = ":";
@@ -91,7 +92,7 @@ macro_rules! define_formatter {
         $format_expr:expr
     ) => {
         $(#[$struct_meta])*
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub struct $name {
             separator: Cow<'static, str>,
         }
@@ -201,6 +202,12 @@ macro_rules! define_formatter {
         impl From<Option<String>> for $name {
             fn from(separator: Option<String>) -> Self {
                 Self::new_owned(separator)
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}(separator: {:?})", stringify!($name), self.separator)
             }
         }
     };
@@ -789,5 +796,191 @@ mod tests {
         // Test Arc trait object
         let arc_trait: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some(" ")));
         assert_eq!(arc_trait.format_buffer(&[1, 2, 3]), "1 2 3");
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        // Test equality with same separator
+        let formatter1 = DecimalFormatter::new(Some("-"));
+        let formatter2 = DecimalFormatter::new(Some("-"));
+        assert_eq!(formatter1, formatter2);
+
+        // Test equality with default separator
+        let formatter3 = DecimalFormatter::new_default();
+        let formatter4 = DecimalFormatter::new(None);
+        assert_eq!(formatter3, formatter4);
+
+        // Test inequality with different separators
+        let formatter5 = DecimalFormatter::new(Some("-"));
+        let formatter6 = DecimalFormatter::new(Some(":"));
+        assert_ne!(formatter5, formatter6);
+
+        // Note: different formatter types cannot be compared in Rust (type mismatch is a compile-time error);
+        // this test only checks that same-type formatters with the same separator are equal.
+        let octal1 = OctalFormatter::new(Some(" "));
+        let octal2 = OctalFormatter::new(Some(" "));
+        assert_eq!(octal1, octal2);
+
+        // Test with static constructor
+        let formatter7 = UppercaseHexadecimalFormatter::new_static(Some("-"));
+        let formatter8 = UppercaseHexadecimalFormatter::new(Some("-"));
+        assert_eq!(formatter7, formatter8);
+
+        // Test with owned constructor
+        let formatter9 = LowercaseHexadecimalFormatter::new_owned(Some(String::from(",")));
+        let formatter10 = LowercaseHexadecimalFormatter::new(Some(","));
+        assert_eq!(formatter9, formatter10);
+    }
+
+    #[test]
+    fn test_hash() {
+        use std::collections::HashMap;
+
+        // Test that formatters with same separator hash to same value
+        let formatter1 = DecimalFormatter::new(Some("-"));
+        let formatter2 = DecimalFormatter::new(Some("-"));
+
+        let mut map = HashMap::new();
+        map.insert(formatter1, "first");
+        map.insert(formatter2, "second"); // Should overwrite "first"
+
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get(&DecimalFormatter::new(Some("-"))), Some(&"second"));
+
+        // Test using formatters in HashSet
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(OctalFormatter::new(Some(":")));
+        set.insert(OctalFormatter::new(Some(":")));
+        set.insert(OctalFormatter::new(Some("-")));
+
+        assert_eq!(set.len(), 2); // Two unique separators
+
+        // Test that all formatter types can be hashed (separately)
+        let mut decimal_set = HashSet::new();
+        decimal_set.insert(DecimalFormatter::new_default());
+        decimal_set.insert(DecimalFormatter::new(Some("-")));
+        assert_eq!(decimal_set.len(), 2);
+
+        let mut octal_set = HashSet::new();
+        octal_set.insert(OctalFormatter::new_default());
+        assert_eq!(octal_set.len(), 1);
+
+        let mut upper_hex_set = HashSet::new();
+        upper_hex_set.insert(UppercaseHexadecimalFormatter::new(Some(" ")));
+        assert_eq!(upper_hex_set.len(), 1);
+
+        let mut lower_hex_set = HashSet::new();
+        lower_hex_set.insert(LowercaseHexadecimalFormatter::new(Some(" ")));
+        assert_eq!(lower_hex_set.len(), 1);
+
+        let mut binary_set = HashSet::new();
+        binary_set.insert(BinaryFormatter::new_static(Some(",")));
+        assert_eq!(binary_set.len(), 1);
+    }
+
+    #[test]
+    fn test_display() {
+        // Test Display implementation with regular separators
+        let formatter = DecimalFormatter::new(Some("-"));
+        assert_eq!(
+            format!("{}", formatter),
+            "DecimalFormatter(separator: \"-\")"
+        );
+
+        let formatter = OctalFormatter::new_default();
+        assert_eq!(format!("{}", formatter), "OctalFormatter(separator: \":\")");
+
+        let formatter = UppercaseHexadecimalFormatter::new(Some(" | "));
+        assert_eq!(
+            format!("{}", formatter),
+            "UppercaseHexadecimalFormatter(separator: \" | \")"
+        );
+
+        let formatter = LowercaseHexadecimalFormatter::new(Some(""));
+        assert_eq!(
+            format!("{}", formatter),
+            "LowercaseHexadecimalFormatter(separator: \"\")"
+        );
+
+        let formatter = BinaryFormatter::new_owned(Some(String::from(" -> ")));
+        assert_eq!(
+            format!("{}", formatter),
+            "BinaryFormatter(separator: \" -> \")"
+        );
+
+        // Test that Display output is useful for logging
+        let formatter = DecimalFormatter::new_static(Some("::"));
+        let output = format!("Using formatter: {}", formatter);
+        assert_eq!(
+            output,
+            "Using formatter: DecimalFormatter(separator: \"::\")"
+        );
+    }
+
+    #[test]
+    fn test_display_with_special_characters() {
+        // Test Display implementation properly escapes special characters
+        // This prevents log forging and ensures unambiguous output
+
+        // Test newline character
+        let formatter = DecimalFormatter::new(Some("\n"));
+        assert_eq!(
+            format!("{}", formatter),
+            "DecimalFormatter(separator: \"\\n\")"
+        );
+
+        // Test tab character
+        let formatter = OctalFormatter::new(Some("\t"));
+        assert_eq!(
+            format!("{}", formatter),
+            "OctalFormatter(separator: \"\\t\")"
+        );
+
+        // Test carriage return
+        let formatter = UppercaseHexadecimalFormatter::new(Some("\r"));
+        assert_eq!(
+            format!("{}", formatter),
+            "UppercaseHexadecimalFormatter(separator: \"\\r\")"
+        );
+
+        // Test double quote character
+        let formatter = LowercaseHexadecimalFormatter::new(Some("\""));
+        assert_eq!(
+            format!("{}", formatter),
+            "LowercaseHexadecimalFormatter(separator: \"\\\"\")"
+        );
+
+        // Test backslash character
+        let formatter = BinaryFormatter::new(Some("\\"));
+        assert_eq!(
+            format!("{}", formatter),
+            "BinaryFormatter(separator: \"\\\\\")"
+        );
+
+        // Test multiple special characters combined
+        let formatter = DecimalFormatter::new(Some("\n\t\r\"\\"));
+        assert_eq!(
+            format!("{}", formatter),
+            "DecimalFormatter(separator: \"\\n\\t\\r\\\"\\\\\")"
+        );
+
+        // Test potential log forging attempt
+        let malicious_sep = "\nINFO: Fake log entry";
+        let formatter = OctalFormatter::new(Some(malicious_sep));
+        let output = format!("{}", formatter);
+        // The newline should be escaped, preventing it from creating a new log line
+        assert!(output.contains("\\n"));
+        assert!(!output.contains("\nINFO"));
+        assert_eq!(
+            output,
+            "OctalFormatter(separator: \"\\nINFO: Fake log entry\")"
+        );
+
+        // Test unicode and other edge cases
+        let formatter = UppercaseHexadecimalFormatter::new(Some("→\u{200B}←")); // Arrow with zero-width space
+        let output = format!("{}", formatter);
+        // Should contain the escaped or properly formatted unicode
+        assert!(output.contains("separator:"));
     }
 }
