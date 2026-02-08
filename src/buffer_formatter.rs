@@ -45,18 +45,6 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
     }
 }
 
-impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for &'static T {
-    #[inline]
-    fn get_separator(&self) -> &str {
-        (**self).get_separator()
-    }
-
-    #[inline]
-    fn format_byte(&self, byte: &u8) -> String {
-        (**self).format_byte(byte)
-    }
-}
-
 impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for Arc<T> {
     #[inline]
     fn get_separator(&self) -> &str {
@@ -664,48 +652,12 @@ mod tests {
         assert_send::<Box<BinaryFormatter>>();
 
         // Arc wrapper types
-        assert_send::<std::sync::Arc<LowercaseHexadecimalFormatter>>();
-        assert_send::<std::sync::Arc<UppercaseHexadecimalFormatter>>();
-        assert_send::<std::sync::Arc<DecimalFormatter>>();
-        assert_send::<std::sync::Arc<OctalFormatter>>();
-        assert_send::<std::sync::Arc<BinaryFormatter>>();
-        assert_send::<std::sync::Arc<dyn BufferFormatter + Sync>>();
-    }
-
-    #[test]
-    fn test_reference_impl() {
-        // Test &'static T implementation - compile-time assertion
-        assert_buffer_formatter::<&'static DecimalFormatter>();
-        assert_buffer_formatter::<&'static OctalFormatter>();
-        assert_buffer_formatter::<&'static UppercaseHexadecimalFormatter>();
-        assert_buffer_formatter::<&'static LowercaseHexadecimalFormatter>();
-        assert_buffer_formatter::<&'static BinaryFormatter>();
-
-        // Test runtime behavior with &'static T
-        static FORMATTER: DecimalFormatter = DecimalFormatter {
-            separator: std::borrow::Cow::Borrowed("-"),
-        };
-
-        let formatter_ref: &'static DecimalFormatter = &FORMATTER;
-        assert_eq!(formatter_ref.get_separator(), "-");
-        assert_eq!(
-            formatter_ref.format_buffer(FORMATTING_TEST_VALUES),
-            String::from("10-11-12-13-14-15-16-17-18")
-        );
-
-        // Test that reference works as BufferFormatter
-        fn takes_formatter(f: &impl BufferFormatter, data: &[u8]) -> String {
-            f.format_buffer(data)
-        }
-
-        let formatter = OctalFormatter::new_default();
-        let result = takes_formatter(&formatter, &[10, 11, 12]);
-        assert_eq!(result, "012:013:014");
-
-        // Test with Arc-wrapped formatter
-        let arc_formatter = Arc::new(UppercaseHexadecimalFormatter::new(Some(" ")));
-        let result = takes_formatter(&*arc_formatter, &[0xCA, 0xFE]);
-        assert_eq!(result, "CA FE");
+        assert_send::<Arc<LowercaseHexadecimalFormatter>>();
+        assert_send::<Arc<UppercaseHexadecimalFormatter>>();
+        assert_send::<Arc<DecimalFormatter>>();
+        assert_send::<Arc<OctalFormatter>>();
+        assert_send::<Arc<BinaryFormatter>>();
+        assert_send::<Arc<dyn BufferFormatter + Sync>>();
     }
 
     #[test]
