@@ -778,7 +778,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrapper_types_in_box() {
+    fn test_arc_wrapper_types() {
         // Test that Arc types work
         let arc_formatter = Arc::new(OctalFormatter::new(Some("-")));
         assert_eq!(arc_formatter.format_buffer(&[8, 9]), "010-011");
