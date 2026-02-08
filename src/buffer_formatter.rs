@@ -648,6 +648,16 @@ mod tests {
         assert_buffer_formatter::<Box<BinaryFormatter>>();
     }
 
+    #[test]
+    fn test_arc() {
+        assert_buffer_formatter::<Arc<LowercaseHexadecimalFormatter>>();
+        assert_buffer_formatter::<Arc<UppercaseHexadecimalFormatter>>();
+        assert_buffer_formatter::<Arc<DecimalFormatter>>();
+        assert_buffer_formatter::<Arc<OctalFormatter>>();
+        assert_buffer_formatter::<Arc<BinaryFormatter>>();
+        assert_buffer_formatter::<Arc<dyn BufferFormatter + Sync>>();
+    }
+
     fn assert_send<T: Send>() {}
 
     #[test]
