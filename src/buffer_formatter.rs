@@ -259,6 +259,7 @@ mod tests {
     use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
     use crate::buffer_formatter::UppercaseHexadecimalFormatter;
+    use std::sync::Arc;
 
     const FORMATTING_TEST_VALUES: &[u8] = &[10, 11, 12, 13, 14, 15, 16, 17, 18];
 
@@ -675,8 +676,6 @@ mod tests {
 
     #[test]
     fn test_reference_impl() {
-        use std::sync::Arc;
-
         // Test &'static T implementation
         static FORMATTER: DecimalFormatter = DecimalFormatter {
             separator: std::borrow::Cow::Borrowed("-"),
@@ -706,8 +705,6 @@ mod tests {
 
     #[test]
     fn test_arc_impl() {
-        use std::sync::Arc;
-
         // Test Arc<T> implementation
         let formatter = Arc::new(DecimalFormatter::new(Some(" -> ")));
         assert_eq!(formatter.get_separator(), " -> ");
@@ -736,8 +733,6 @@ mod tests {
 
     #[test]
     fn test_arc_trait_object() {
-        use std::sync::Arc;
-
         // Test Arc<dyn BufferFormatter + Sync>
         let formatter: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some("-")));
 
@@ -769,7 +764,6 @@ mod tests {
 
     #[test]
     fn test_arc_thread_safety() {
-        use std::sync::Arc;
         use std::thread;
 
         // Test that Arc<T: BufferFormatter> can be shared across threads
@@ -787,8 +781,6 @@ mod tests {
 
     #[test]
     fn test_wrapper_types_in_box() {
-        use std::sync::Arc;
-
         // Test that Arc types work
         let arc_formatter = Arc::new(OctalFormatter::new(Some("-")));
         assert_eq!(arc_formatter.format_buffer(&[8, 9]), "010-011");
