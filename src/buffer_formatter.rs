@@ -645,8 +645,8 @@ mod tests {
         let formatter6 = DecimalFormatter::new(Some(":"));
         assert_ne!(formatter5, formatter6);
 
-        // Test different formatter types are not equal (different types, won't compile to compare)
-        // but same separator within same type should be equal
+        // Note: different formatter types cannot be compared in Rust (type mismatch is a compile-time error);
+        // this test only checks that same-type formatters with the same separator are equal.
         let octal1 = OctalFormatter::new(Some(" "));
         let octal2 = OctalFormatter::new(Some(" "));
         assert_eq!(octal1, octal2);
