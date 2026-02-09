@@ -1,6 +1,7 @@
 use crate::Record;
 use crate::RecordKind;
 use itertools::Itertools;
+use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Trait
@@ -19,11 +20,23 @@ pub trait RecordFilter: Send + 'static {
     ///
     /// [`LoggedStream`]: crate::LoggedStream
     fn check(&self, record: &Record) -> bool;
+
+    /// This method provides [`fmt::Debug`] representation of the filter. It is used by composite filters
+    /// ([`AllFilter`] and [`AnyFilter`]) to produce detailed debug output of their underlying filters.
+    /// The default implementation outputs the type name as `"UnknownFilter"`.
+    /// Implementors are encouraged to override this method to provide meaningful debug information.
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("UnknownFilter")
+    }
 }
 
 impl RecordFilter for Box<dyn RecordFilter> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt_debug(f)
     }
 }
 
@@ -43,11 +56,19 @@ impl RecordFilter for DefaultFilter {
     fn check(&self, _record: &Record) -> bool {
         true
     }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl RecordFilter for Box<DefaultFilter> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt_debug(f)
     }
 }
 
@@ -80,11 +101,19 @@ impl RecordFilter for RecordKindFilter {
     fn check(&self, record: &Record) -> bool {
         self.allowed_kinds.contains(&record.kind)
     }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl RecordFilter for Box<RecordKindFilter> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt_debug(f)
     }
 }
 
@@ -122,6 +151,30 @@ pub struct AllFilter {
     filters: Vec<Box<dyn RecordFilter>>,
 }
 
+/// Helper wrapper to bridge [`RecordFilter::fmt_debug`] into [`fmt::Debug`].
+struct RecordFilterDebug<'a>(&'a dyn RecordFilter);
+
+impl fmt::Debug for RecordFilterDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt_debug(f)
+    }
+}
+
+impl fmt::Debug for AllFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AllFilter")
+            .field(
+                "filters",
+                &self
+                    .filters
+                    .iter()
+                    .map(|filter| RecordFilterDebug(filter.as_ref()))
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
 impl AllFilter {
     /// Construct a new instance of [`AllFilter`] using provided vector of boxed filters.
     ///
@@ -149,11 +202,19 @@ impl RecordFilter for AllFilter {
     fn check(&self, record: &Record) -> bool {
         self.filters.iter().all(|filter| filter.check(record))
     }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl RecordFilter for Box<AllFilter> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt_debug(f)
     }
 }
 
@@ -195,6 +256,21 @@ pub struct AnyFilter {
     filters: Vec<Box<dyn RecordFilter>>,
 }
 
+impl fmt::Debug for AnyFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AnyFilter")
+            .field(
+                "filters",
+                &self
+                    .filters
+                    .iter()
+                    .map(|filter| RecordFilterDebug(filter.as_ref()))
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
 impl AnyFilter {
     /// Construct a new instance of [`AnyFilter`] using provided vector of boxed filters.
     ///
@@ -222,11 +298,19 @@ impl RecordFilter for AnyFilter {
     fn check(&self, record: &Record) -> bool {
         self.filters.iter().any(|filter| filter.check(record))
     }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl RecordFilter for Box<AnyFilter> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt_debug(f)
     }
 }
 
@@ -508,6 +592,8 @@ mod tests {
 
     fn assert_send<T: Send>() {}
 
+    fn assert_debug<T: std::fmt::Debug>() {}
+
     #[test]
     fn test_send() {
         assert_send::<RecordKindFilter>();
@@ -520,5 +606,75 @@ mod tests {
         assert_send::<Box<DefaultFilter>>();
         assert_send::<Box<AllFilter>>();
         assert_send::<Box<AnyFilter>>();
+    }
+
+    #[test]
+    fn test_debug() {
+        assert_debug::<DefaultFilter>();
+        assert_debug::<RecordKindFilter>();
+        assert_debug::<AllFilter>();
+        assert_debug::<AnyFilter>();
+
+        assert_debug::<Box<DefaultFilter>>();
+        assert_debug::<Box<RecordKindFilter>>();
+        assert_debug::<Box<AllFilter>>();
+        assert_debug::<Box<AnyFilter>>();
+    }
+
+    #[test]
+    fn test_debug_output() {
+        // DefaultFilter
+        assert_eq!(format!("{:?}", DefaultFilter), "DefaultFilter");
+
+        // RecordKindFilter
+        let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]);
+        let debug_str = format!("{:?}", record_kind_filter);
+        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("Read"));
+        assert!(debug_str.contains("Write"));
+
+        // AllFilter (empty)
+        let all_filter_empty = AllFilter::new(vec![]);
+        let debug_str = format!("{:?}", all_filter_empty);
+        assert!(debug_str.contains("AllFilter"));
+        assert!(debug_str.contains("filters: []"));
+
+        // AllFilter (with children)
+        let all_filter = AllFilter::new(vec![
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(DefaultFilter),
+        ]);
+        let debug_str = format!("{:?}", all_filter);
+        assert!(debug_str.contains("AllFilter"));
+        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("Read"));
+        assert!(debug_str.contains("DefaultFilter"));
+
+        // AnyFilter (empty)
+        let any_filter_empty = AnyFilter::new(vec![]);
+        let debug_str = format!("{:?}", any_filter_empty);
+        assert!(debug_str.contains("AnyFilter"));
+        assert!(debug_str.contains("filters: []"));
+
+        // AnyFilter (with children)
+        let any_filter = AnyFilter::new(vec![
+            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(DefaultFilter),
+        ]);
+        let debug_str = format!("{:?}", any_filter);
+        assert!(debug_str.contains("AnyFilter"));
+        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("Write"));
+        assert!(debug_str.contains("DefaultFilter"));
+
+        // Nested composite filter
+        let nested = AllFilter::new(vec![Box::new(AnyFilter::new(vec![Box::new(
+            RecordKindFilter::new(&[RecordKind::Read]),
+        )]))]);
+        let debug_str = format!("{:?}", nested);
+        assert!(debug_str.contains("AllFilter"));
+        assert!(debug_str.contains("AnyFilter"));
+        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("Read"));
     }
 }
