@@ -327,6 +327,7 @@ mod tests {
     use crate::filter::RecordKindFilter;
     use crate::record::Record;
     use crate::record::RecordKind;
+    use std::fmt;
 
     fn assert_unpin<T: Unpin>() {}
 
@@ -592,8 +593,6 @@ mod tests {
 
     fn assert_send<T: Send>() {}
 
-    fn assert_debug<T: std::fmt::Debug>() {}
-
     #[test]
     fn test_send() {
         assert_send::<RecordKindFilter>();
@@ -607,6 +606,8 @@ mod tests {
         assert_send::<Box<AllFilter>>();
         assert_send::<Box<AnyFilter>>();
     }
+
+    fn assert_debug<T: fmt::Debug>() {}
 
     #[test]
     fn test_debug() {
