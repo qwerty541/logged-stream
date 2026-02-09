@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt;
+use std::sync::Arc;
 
 const DEFAULT_SEPARATOR: &str = ":";
 
@@ -33,6 +34,18 @@ pub trait BufferFormatter: Send + 'static {
 }
 
 impl BufferFormatter for Box<dyn BufferFormatter> {
+    #[inline]
+    fn get_separator(&self) -> &str {
+        (**self).get_separator()
+    }
+
+    #[inline]
+    fn format_byte(&self, byte: &u8) -> String {
+        (**self).format_byte(byte)
+    }
+}
+
+impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for Arc<T> {
     #[inline]
     fn get_separator(&self) -> &str {
         (**self).get_separator()
@@ -222,6 +235,9 @@ mod tests {
     use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::buffer_formatter::OctalFormatter;
     use crate::buffer_formatter::UppercaseHexadecimalFormatter;
+    use std::borrow::Cow;
+    use std::sync::Arc;
+    use std::thread;
 
     const FORMATTING_TEST_VALUES: &[u8] = &[10, 11, 12, 13, 14, 15, 16, 17, 18];
 
@@ -339,8 +355,6 @@ mod tests {
 
     #[test]
     fn test_from_cow() {
-        use std::borrow::Cow;
-
         // Test with borrowed Cow
         let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
         let formatter = DecimalFormatter::from(sep_borrowed);
@@ -610,6 +624,16 @@ mod tests {
         assert_buffer_formatter::<Box<BinaryFormatter>>();
     }
 
+    #[test]
+    fn test_arc() {
+        assert_buffer_formatter::<Arc<LowercaseHexadecimalFormatter>>();
+        assert_buffer_formatter::<Arc<UppercaseHexadecimalFormatter>>();
+        assert_buffer_formatter::<Arc<DecimalFormatter>>();
+        assert_buffer_formatter::<Arc<OctalFormatter>>();
+        assert_buffer_formatter::<Arc<BinaryFormatter>>();
+        assert_buffer_formatter::<Arc<dyn BufferFormatter + Sync>>();
+    }
+
     fn assert_send<T: Send>() {}
 
     #[test]
@@ -626,6 +650,99 @@ mod tests {
         assert_send::<Box<DecimalFormatter>>();
         assert_send::<Box<OctalFormatter>>();
         assert_send::<Box<BinaryFormatter>>();
+
+        // Arc wrapper types
+        assert_send::<Arc<LowercaseHexadecimalFormatter>>();
+        assert_send::<Arc<UppercaseHexadecimalFormatter>>();
+        assert_send::<Arc<DecimalFormatter>>();
+        assert_send::<Arc<OctalFormatter>>();
+        assert_send::<Arc<BinaryFormatter>>();
+        assert_send::<Arc<dyn BufferFormatter + Sync>>();
+    }
+
+    #[test]
+    fn test_arc_impl() {
+        // Test Arc<T> implementation
+        let formatter = Arc::new(DecimalFormatter::new(Some(" -> ")));
+        assert_eq!(formatter.get_separator(), " -> ");
+        assert_eq!(
+            formatter.format_buffer(FORMATTING_TEST_VALUES),
+            String::from("10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18")
+        );
+
+        // Test Arc can be cloned and shared
+        let formatter_clone = Arc::clone(&formatter);
+        assert_eq!(formatter_clone.format_buffer(&[42, 43]), "42 -> 43");
+
+        // Test all formatter types with Arc
+        let octal = Arc::new(OctalFormatter::new_default());
+        assert_eq!(octal.format_buffer(&[8, 9, 10]), "010:011:012");
+
+        let uppercase_hex = Arc::new(UppercaseHexadecimalFormatter::new(Some(",")));
+        assert_eq!(uppercase_hex.format_buffer(&[255, 254]), "FF,FE");
+
+        let lowercase_hex = Arc::new(LowercaseHexadecimalFormatter::new(Some(" ")));
+        assert_eq!(lowercase_hex.format_buffer(&[0xAB, 0xCD]), "ab cd");
+
+        let binary = Arc::new(BinaryFormatter::new(Some("|")));
+        assert_eq!(binary.format_buffer(&[3, 7]), "00000011|00000111");
+    }
+
+    #[test]
+    fn test_arc_trait_object() {
+        // Test Arc<dyn BufferFormatter + Sync>
+        let formatter: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some("-")));
+
+        assert_eq!(formatter.get_separator(), "-");
+        assert_eq!(formatter.format_buffer(&[1, 2, 3]), "1-2-3");
+
+        // Test with different formatter types
+        let formatters: Vec<Arc<dyn BufferFormatter + Sync>> = vec![
+            Arc::new(DecimalFormatter::new_default()),
+            Arc::new(OctalFormatter::new_default()),
+            Arc::new(UppercaseHexadecimalFormatter::new_default()),
+            Arc::new(LowercaseHexadecimalFormatter::new_default()),
+            Arc::new(BinaryFormatter::new_default()),
+        ];
+
+        let data = vec![10u8];
+        let results: Vec<String> = formatters.iter().map(|f| f.format_buffer(&data)).collect();
+
+        assert_eq!(results[0], "10"); // Decimal
+        assert_eq!(results[1], "012"); // Octal
+        assert_eq!(results[2], "0A"); // Uppercase Hex
+        assert_eq!(results[3], "0a"); // Lowercase Hex
+        assert_eq!(results[4], "00001010"); // Binary
+
+        // Test Arc trait object can be cloned
+        let formatter_clone = Arc::clone(&formatters[0]);
+        assert_eq!(formatter_clone.format_buffer(&[42]), "42");
+    }
+
+    #[test]
+    fn test_arc_thread_safety() {
+        // Test that Arc<T: BufferFormatter> can be shared across threads
+        let formatter = Arc::new(DecimalFormatter::new(Some(" | ")));
+        let formatter_clone = Arc::clone(&formatter);
+
+        let handle = thread::spawn(move || formatter_clone.format_buffer(&[1, 2, 3, 4, 5]));
+
+        let result = handle.join().unwrap();
+        assert_eq!(result, "1 | 2 | 3 | 4 | 5");
+
+        // Original formatter still works
+        assert_eq!(formatter.format_buffer(&[10, 20]), "10 | 20");
+    }
+
+    #[test]
+    fn test_arc_wrapper_types() {
+        // Test that Arc types work
+        let arc_formatter = Arc::new(OctalFormatter::new(Some("-")));
+        assert_eq!(arc_formatter.format_buffer(&[8, 9]), "010-011");
+
+        // Test Arc trait object
+        let arc_trait: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some(" ")));
+        assert_eq!(arc_trait.format_buffer(&[1, 2, 3]), "1 2 3");
     }
 
     #[test]
