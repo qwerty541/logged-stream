@@ -77,9 +77,9 @@ jobs:
             ~/.cargo
             target
             Cargo.lock
-          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
+          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml') }}
+            ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
             ${{ matrix.os }}-${{ matrix.rust }}-
           enableCrossOsArchive: true
 
@@ -118,7 +118,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Cache rustup toolchains
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ~/.rustup/toolchains
           key: ${{ runner.os }}-rustup-toolchains-${{ hashFiles('**/Cargo.lock') }}
@@ -126,7 +126,7 @@ jobs:
             ${{ runner.os }}-rustup-toolchains-
 
       - name: Install cargo-msrv
-        uses: taiki-e/install-action@f176c07a0a40cbfdd08ee9aa8bf1655701d11e69 # v2.67.25
+        uses: taiki-e/install-action@288875dd3d64326724fa6d9593062d9f8ba0b131 # v2.67.30
         with:
           tool: cargo-msrv
 
