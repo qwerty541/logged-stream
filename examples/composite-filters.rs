@@ -82,7 +82,7 @@ fn main() {
             Box::new(RecordKindFilter::new(&[RecordKind::Read])),
             Box::new(RecordKindFilter::new(&[RecordKind::Write])),
         ])),
-        // And also must not be Drop (we use DefaultFilter as placeholder here)
+        // And also apply additional conditions (here we just use DefaultFilter, which accepts everything)
         Box::new(DefaultFilter),
     ]);
 
