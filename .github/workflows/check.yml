@@ -38,6 +38,7 @@ jobs:
   fmt:
     name: Formatting
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -127,7 +128,7 @@ jobs:
             ${{ runner.os }}-rustup-toolchains-
 
       - name: Install cargo-msrv
-        uses: taiki-e/install-action@288875dd3d64326724fa6d9593062d9f8ba0b131 # v2.67.30
+        uses: taiki-e/install-action@470679bc3a1580072dac4e67535d1aa3a3dcdf51 # v2.68.6
         with:
           tool: cargo-msrv
 
