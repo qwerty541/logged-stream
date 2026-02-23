@@ -140,17 +140,23 @@ impl fmt::Debug for RecordFilterDebug<'_> {
     }
 }
 
+/// Helper wrapper to format a slice of [`RecordFilter`]s without allocating.
+struct RecordFiltersDebug<'a>(&'a [Box<dyn RecordFilter>]);
+
+impl fmt::Debug for RecordFiltersDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+        for filter in self.0.iter() {
+            list.entry(&RecordFilterDebug(filter.as_ref()));
+        }
+        list.finish()
+    }
+}
+
 impl fmt::Debug for AllFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AllFilter")
-            .field(
-                "filters",
-                &self
-                    .filters
-                    .iter()
-                    .map(|filter| RecordFilterDebug(filter.as_ref()))
-                    .collect::<Vec<_>>(),
-            )
+            .field("filters", &RecordFiltersDebug(&self.filters))
             .finish()
     }
 }
