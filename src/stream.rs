@@ -57,6 +57,8 @@ use tokio::io as tokio_io;
 /// [`OctalFormatter`]: crate::OctalFormatter
 /// [`DefaultFilter`]: crate::DefaultFilter
 /// [`RecordKindFilter`]: crate::RecordKindFilter
+/// [`AllFilter`]: crate::AllFilter
+/// [`AnyFilter`]: crate::AnyFilter
 /// [`ConsoleLogger`]: crate::ConsoleLogger
 /// [`FileLogger`]: crate::FileLogger
 pub struct LoggedStream<
