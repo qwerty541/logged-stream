@@ -15,7 +15,7 @@
 //!     public trait so you are free to construct your own implementation.
 //! -   Filtering part, which must implement [`RecordFilter`] trait provided by this library.
 //!     This part of [`LoggedStream`] is responsible for log records filtering. Currently this
-//!     library provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which
+//!     library provides the following implementations of [`RecordFilter`] trait: [`DefaultFilter`] which
 //!     accepts all log records, [`RecordKindFilter`] which accepts logs with kinds specified during
 //!     construct, [`AllFilter`] which combines multiple filters with AND logic (accepts record only if
 //!     all underlying filters accept it), and [`AnyFilter`] which combines multiple filters with OR logic
