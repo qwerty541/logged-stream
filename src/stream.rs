@@ -30,7 +30,7 @@ use tokio::io as tokio_io;
 ///     [`LowercaseHexadecimalFormatter`], [`UppercaseHexadecimalFormatter`], [`DecimalFormatter`],
 ///     [`BinaryFormatter`] and [`OctalFormatter`]. Also [`BufferFormatter`] is public trait so you are
 ///     free to construct your own implementation.
-/// -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
+/// -   Filtering part, which must implement [`RecordFilter`] trait provided by this library.
 ///     This part of [`LoggedStream`] is responsible for log records filtering. Currently this library
 ///     provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which accepts
 ///     all log records and [`RecordKindFilter`] which accepts logs with kinds specified during construct.
