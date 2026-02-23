@@ -235,14 +235,7 @@ pub struct AnyFilter {
 impl fmt::Debug for AnyFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AnyFilter")
-            .field(
-                "filters",
-                &self
-                    .filters
-                    .iter()
-                    .map(|filter| RecordFilterDebug(filter.as_ref()))
-                    .collect::<Vec<_>>(),
-            )
+            .field("filters", &RecordFiltersDebug(&self.filters))
             .finish()
     }
 }
