@@ -30,11 +30,14 @@ use tokio::io as tokio_io;
 ///     [`LowercaseHexadecimalFormatter`], [`UppercaseHexadecimalFormatter`], [`DecimalFormatter`],
 ///     [`BinaryFormatter`] and [`OctalFormatter`]. Also [`BufferFormatter`] is public trait so you are
 ///     free to construct your own implementation.
-/// -   Filtering part, which must implement [`RecordFilter`] trait provide by this library.
-///     This part of [`LoggedStream`] is responsible for log records filtering. Currently this library
-///     provides the following implementation of [`RecordFilter`] trait: [`DefaultFilter`] which accepts
-///     all log records and [`RecordKindFilter`] which accepts logs with kinds specified during construct.
-///     Also [`RecordFilter`] is public trait and you are free to construct your own implementation.
+/// -   Filtering part, which must implement [`RecordFilter`] trait provided by this library.
+///     This part of [`LoggedStream`] is responsible for log records filtering. Currently this
+///     library provides the following implementations of [`RecordFilter`] trait: [`DefaultFilter`] which
+///     accepts all log records, [`RecordKindFilter`] which accepts logs with kinds specified during
+///     construct, [`AllFilter`] which combines multiple filters with AND logic (accepts record only if
+///     all underlying filters accept it), and [`AnyFilter`] which combines multiple filters with OR logic
+///     (accepts record if any underlying filter accepts it). Also [`RecordFilter`] is public trait and
+///     you are free to construct your own implementation.
 /// -   Logging part, which must implement [`Logger`] trait provided by this library. This part
 ///     of [`LoggedStream`] is responsible for further work with constructed, formatter and filtered
 ///     log record. For example, it can be outputted to console, written to the file, written to database,
@@ -54,6 +57,8 @@ use tokio::io as tokio_io;
 /// [`OctalFormatter`]: crate::OctalFormatter
 /// [`DefaultFilter`]: crate::DefaultFilter
 /// [`RecordKindFilter`]: crate::RecordKindFilter
+/// [`AllFilter`]: crate::AllFilter
+/// [`AnyFilter`]: crate::AnyFilter
 /// [`ConsoleLogger`]: crate::ConsoleLogger
 /// [`FileLogger`]: crate::FileLogger
 pub struct LoggedStream<
