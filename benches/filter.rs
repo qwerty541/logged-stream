@@ -9,8 +9,9 @@ use logged_stream::RecordKind;
 use logged_stream::RecordKindFilter;
 
 fn criterion_benchmark(c: &mut Criterion) {
+    let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read]);
+
     c.bench_function("RecordKindFilter", |b| {
-        let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read]);
         b.iter(|| {
             record_kind_filter.check(&Record::new(RecordKind::Open, String::from("open")));
             record_kind_filter.check(&Record::new(RecordKind::Read, String::from("read")));
@@ -21,17 +22,18 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("AllFilter", |b| {
-        let all_filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Write,
-            ])),
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Error,
-            ])),
-        ]);
+    let all_filter = AllFilter::new(vec![
+        Box::new(RecordKindFilter::new(&[
+            RecordKind::Read,
+            RecordKind::Write,
+        ])),
+        Box::new(RecordKindFilter::new(&[
+            RecordKind::Read,
+            RecordKind::Error,
+        ])),
+    ]);
+
+    c.bench_function("AllFilter", move |b| {
         b.iter(|| {
             all_filter.check(&Record::new(RecordKind::Open, String::from("open")));
             all_filter.check(&Record::new(RecordKind::Read, String::from("read")));
@@ -42,11 +44,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("AnyFilter", |b| {
-        let any_filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
-        ]);
+    let any_filter = AnyFilter::new(vec![
+        Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+        Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+    ]);
+
+    c.bench_function("AnyFilter", move |b| {
         b.iter(|| {
             any_filter.check(&Record::new(RecordKind::Open, String::from("open")));
             any_filter.check(&Record::new(RecordKind::Read, String::from("read")));
@@ -57,11 +60,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("NestedCompositeFilter", |b| {
-        let nested_filter = AllFilter::new(vec![Box::new(AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
-        ]))]);
+    let nested_filter = AllFilter::new(vec![Box::new(AnyFilter::new(vec![
+        Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+        Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+    ]))]);
+
+    c.bench_function("NestedCompositeFilter", move |b| {
         b.iter(|| {
             nested_filter.check(&Record::new(RecordKind::Open, String::from("open")));
             nested_filter.check(&Record::new(RecordKind::Read, String::from("read")));
