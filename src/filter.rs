@@ -131,28 +131,6 @@ pub struct AllFilter {
     filters: Vec<Box<dyn RecordFilter>>,
 }
 
-/// Helper wrapper to bridge [`RecordFilter::fmt_debug`] into [`fmt::Debug`].
-struct RecordFilterDebug<'a>(&'a dyn RecordFilter);
-
-impl fmt::Debug for RecordFilterDebug<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt_debug(f)
-    }
-}
-
-/// Helper wrapper to format a slice of [`RecordFilter`]s without allocating.
-struct RecordFiltersDebug<'a>(&'a [Box<dyn RecordFilter>]);
-
-impl fmt::Debug for RecordFiltersDebug<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut list = f.debug_list();
-        for filter in self.0.iter() {
-            list.entry(&RecordFilterDebug(filter.as_ref()));
-        }
-        list.finish()
-    }
-}
-
 impl fmt::Debug for AllFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AllFilter")
@@ -270,6 +248,32 @@ impl RecordFilter for AnyFilter {
 
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Debug Helpers
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Helper wrapper to bridge [`RecordFilter::fmt_debug`] into [`fmt::Debug`].
+struct RecordFilterDebug<'a>(&'a dyn RecordFilter);
+
+impl fmt::Debug for RecordFilterDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt_debug(f)
+    }
+}
+
+/// Helper wrapper to format a slice of [`RecordFilter`]s without allocating.
+struct RecordFiltersDebug<'a>(&'a [Box<dyn RecordFilter>]);
+
+impl fmt::Debug for RecordFiltersDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+        for filter in self.0.iter() {
+            list.entry(&RecordFilterDebug(filter.as_ref()));
+        }
+        list.finish()
     }
 }
 
