@@ -30,7 +30,7 @@ pub trait RecordFilter: Send + 'static {
     }
 }
 
-impl RecordFilter for Box<dyn RecordFilter> {
+impl<T: RecordFilter + ?Sized> RecordFilter for Box<T> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
     }
@@ -59,16 +59,6 @@ impl RecordFilter for DefaultFilter {
 
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-}
-
-impl RecordFilter for Box<DefaultFilter> {
-    fn check(&self, record: &Record) -> bool {
-        (**self).check(record)
-    }
-
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (**self).fmt_debug(f)
     }
 }
 
@@ -104,16 +94,6 @@ impl RecordFilter for RecordKindFilter {
 
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-}
-
-impl RecordFilter for Box<RecordKindFilter> {
-    fn check(&self, record: &Record) -> bool {
-        (**self).check(record)
-    }
-
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (**self).fmt_debug(f)
     }
 }
 
@@ -208,16 +188,6 @@ impl RecordFilter for AllFilter {
     }
 }
 
-impl RecordFilter for Box<AllFilter> {
-    fn check(&self, record: &Record) -> bool {
-        (**self).check(record)
-    }
-
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (**self).fmt_debug(f)
-    }
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AnyFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -301,16 +271,6 @@ impl RecordFilter for AnyFilter {
 
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-}
-
-impl RecordFilter for Box<AnyFilter> {
-    fn check(&self, record: &Record) -> bool {
-        (**self).check(record)
-    }
-
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (**self).fmt_debug(f)
     }
 }
 
