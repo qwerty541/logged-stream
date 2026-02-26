@@ -25,24 +25,33 @@ const fn generate_array() -> [u8; TEST_ARRAY_LENGTH] {
 const FORMATTING_TEST_VALUES: &[u8] = &generate_array();
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("LowercaseHexadecimalFormatter", |b| {
-        let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_default();
+    let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_default();
+
+    c.bench_function("LowercaseHexadecimalFormatter", move |b| {
         b.iter(|| lowercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES))
     });
-    c.bench_function("UppercaseHexadecimalFormatter", |b| {
-        let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_default();
+
+    let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_default();
+
+    c.bench_function("UppercaseHexadecimalFormatter", move |b| {
         b.iter(|| uppercase_hexadecimal.format_buffer(FORMATTING_TEST_VALUES))
     });
-    c.bench_function("DecimalFormatter", |b| {
-        let decimal = DecimalFormatter::new_default();
+
+    let decimal = DecimalFormatter::new_default();
+
+    c.bench_function("DecimalFormatter", move |b| {
         b.iter(|| decimal.format_buffer(FORMATTING_TEST_VALUES))
     });
-    c.bench_function("OctalFormatter", |b| {
-        let octal = OctalFormatter::new_default();
+
+    let octal = OctalFormatter::new_default();
+
+    c.bench_function("OctalFormatter", move |b| {
         b.iter(|| octal.format_buffer(FORMATTING_TEST_VALUES))
     });
-    c.bench_function("BinaryFormatter", |b| {
-        let binary = BinaryFormatter::new_default();
+
+    let binary = BinaryFormatter::new_default();
+
+    c.bench_function("BinaryFormatter", move |b| {
         b.iter(|| binary.format_buffer(FORMATTING_TEST_VALUES))
     });
 }

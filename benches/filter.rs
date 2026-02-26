@@ -11,7 +11,7 @@ use logged_stream::RecordKindFilter;
 fn criterion_benchmark(c: &mut Criterion) {
     let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read]);
 
-    c.bench_function("RecordKindFilter", |b| {
+    c.bench_function("RecordKindFilter", move |b| {
         b.iter(|| {
             record_kind_filter.check(&Record::new(RecordKind::Open, String::from("open")));
             record_kind_filter.check(&Record::new(RecordKind::Read, String::from("read")));
