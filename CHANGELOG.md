@@ -9,16 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added two new implementations of the `RecordFilter` trait: `AllFilter` and `AnyFilter` for combining multiple filters with AND and OR logic respectively.
-- Added `new_static` method for all `BufferFormatter` trait implementations to allow creating instances with static string separators.
-- Added implementations for `fmt::Display`, `Eq`, `PartialEq` and `Hash` for all `BufferFormatter` trait implementations.
-- Added multiple useful `From<...>` impls for `BufferFormatter` trait implementations to allow easy conversion from various string types to these implementations.
-- Added automatic implementation of `BufferFormatter` for `Arc<T>` where `T: BufferFormatter + ?Sized + Sync`.
+- Added `AllFilter` and `AnyFilter` composite filters for combining multiple `RecordFilter`s with AND and OR logic respectively.
+- Added `new_static` method to all `BufferFormatter` structures to allow creating instances with static string separators.
+- Implement `fmt::Display`, `Eq`, `PartialEq` and `Hash` for all `BufferFormatter` structures.
+- Implement `From<Cow<'static, str>>`, `From<&str>`, `From<String>`, `From<Option<&str>>` and `From<Option<String>>` for all `BufferFormatter` structures.
+- Implement `BufferFormatter` for `Arc<T>` where `T: BufferFormatter + ?Sized + Sync`.
 
 ### Changed
 
-- All `BufferFormatter` trait implementations now use `Cow<'static, str>` under the hood for memory optimization and flexibility.
-- Refactored `BufferFormatter` trait implementations using a macro-based generation approach to reduce code duplication and improve maintainability.
+- All `BufferFormatter` structures now use `Cow<'static, str>` under the hood for memory optimization and flexibility.
+- Refactored `BufferFormatter` structures using a macro-based generation approach to reduce code duplication and improve maintainability.
 
 ### Documentation
 
