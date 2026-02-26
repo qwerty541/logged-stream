@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created security protocol document with instructions for reporting security vulnerabilities.
 - Created basic contributing document with instructions for contributing to the project.
 - Updated license badge to be clickable and link to the license file in the repository.
-- Updated rust version badge to be clickable.
+- Updated Rust version badge to be clickable.
 - Added total lines count badge to the README file.
 - Added COCOMO badge to the README file.
 
