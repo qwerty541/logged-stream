@@ -17,15 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- All `BufferFormatter` trait implementations now using `Cow<'static, str>` under the hood for memory optimization and flexibility.
-- Refactored `BufferFormatter` trait implementations using macro based generation approach to reduce code duplication and improve maintainability.
+- All `BufferFormatter` trait implementations now use `Cow<'static, str>` under the hood for memory optimization and flexibility.
+- Refactored `BufferFormatter` trait implementations using a macro-based generation approach to reduce code duplication and improve maintainability.
 
 ### Documentation
 
 - Created security protocol document with instructions for reporting security vulnerabilities.
 - Created basic contributing document with instructions for contributing to the project.
 - Updated license badge to be clickable and link to the license file in the repository.
-- Updated rust version badge to be clickable.
+- Updated Rust version badge to be clickable.
 - Added total lines count badge to the README file.
 - Added COCOMO badge to the README file.
 
