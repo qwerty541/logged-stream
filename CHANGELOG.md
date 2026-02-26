@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `AllFilter` and `AnyFilter` composite filters for combining multiple `RecordFilter`s with AND and OR logic respectively.
+- Added `new_static` method to all `BufferFormatter` structures to allow creating instances with static string separators.
+- Implemented `fmt::Display`, `Eq`, `PartialEq` and `Hash` for all `BufferFormatter` structures.
+- Implemented `From<Cow<'static, str>>`, `From<&str>`, `From<String>`, `From<Option<&str>>` and `From<Option<String>>` for all `BufferFormatter` structures.
+- Implemented `BufferFormatter` for `Arc<T>` where `T: BufferFormatter + ?Sized + Sync`.
+
+### Changed
+
+- All `BufferFormatter` structures now use `Cow<'static, str>` under the hood for memory optimization and flexibility.
+- Refactored `BufferFormatter` structures using a macro-based generation approach to reduce code duplication and improve maintainability.
+
+### Documentation
+
+- Created security protocol document with instructions for reporting security vulnerabilities.
+- Created basic contributing document with instructions for contributing to the project.
+- Updated license badge to be clickable and link to the license file in the repository.
+- Updated Rust version badge to be clickable.
+- Added total lines count badge to the README file.
+- Added COCOMO badge to the README file.
+
+### Dependencies
+
+- Updated `bytes` from 1.4.0 to 1.11.1
+- Updated `tokio` from 1.45.0 to 1.49.0
+- Updated `slab` from 0.4.10 to 0.4.11
+- Updated `chrono` from 0.4.41 to 0.4.43
+- Updated `log` from 0.4.27 to 0.4.29
+- Updated `criterion` from 0.5.1 to 0.8.2
+
 ## v0.4.1 (15.05.2025)
 
 ### Changed
