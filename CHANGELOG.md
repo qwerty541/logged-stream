@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- All `BufferFormatter` trait implementations now using `Cow<'static, str>` under the hood for memory optimization and flexibility.
+- All `BufferFormatter` trait implementations now use `Cow<'static, str>` under the hood for memory optimization and flexibility.
 - Refactored `BufferFormatter` trait implementations using macro based generation approach to reduce code duplication and improve maintainability.
 
 ### Documentation
