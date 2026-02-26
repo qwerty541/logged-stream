@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `AllFilter` and `AnyFilter` composite filters for combining multiple `RecordFilter`s with AND and OR logic respectively.
 - Added `new_static` method to all `BufferFormatter` structures to allow creating instances with static string separators.
-- Implement `fmt::Display`, `Eq`, `PartialEq` and `Hash` for all `BufferFormatter` structures.
-- Implement `From<Cow<'static, str>>`, `From<&str>`, `From<String>`, `From<Option<&str>>` and `From<Option<String>>` for all `BufferFormatter` structures.
-- Implement `BufferFormatter` for `Arc<T>` where `T: BufferFormatter + ?Sized + Sync`.
+- Implemented `fmt::Display`, `Eq`, `PartialEq` and `Hash` for all `BufferFormatter` structures.
+- Implemented `From<Cow<'static, str>>`, `From<&str>`, `From<String>`, `From<Option<&str>>` and `From<Option<String>>` for all `BufferFormatter` structures.
+- Implemented `BufferFormatter` for `Arc<T>` where `T: BufferFormatter + ?Sized + Sync`.
 
 ### Changed
 
