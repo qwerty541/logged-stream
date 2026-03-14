@@ -5,7 +5,7 @@ This document is a checklist for the release process of the `logged-stream` proj
 - Ensure that the [CHANGELOG.md](./CHANGELOG.md) contains all unreleased changes and adheres to the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 - Ensure that the [README.md](./README.md) contain all the necessary information about the new version.
 - Ensure that the [CONTRIBUTING.md](./CONTRIBUTING.md) is up to date with any new contribution guidelines or processes.
-- Ensure that GitHub Actions checks are passing and MSRV is not changed, if changed update the badge in [README.md](./README.md), add the note into [CHANGELOG.md](./CHANGELOG.md) and update `rust-version` property inside [Cargo.toml](./Cargo.toml).
+- Ensure that GitHub Actions checks are passing. If the MSRV changed, update the badge in [README.md](./README.md), add a note to [CHANGELOG.md](./CHANGELOG.md), and update the `rust-version` property in [Cargo.toml](./Cargo.toml).
 - Define a new version according to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and update it inside the following files:
   - Update the `version` property in [Cargo.toml](./Cargo.toml) to the new version.
   - Rename the `Unreleased` section in [CHANGELOG.md](./CHANGELOG.md) to the new version and current date.
