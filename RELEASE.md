@@ -8,8 +8,8 @@ This document is a checklist for the release process of the `logged-stream` proj
 - Ensure that GitHub Actions checks are passing and MSRV is not changed, if changed update the badge in [README.md](./README.md), add the note into [CHANGELOG.md](./CHANGELOG.md) and update `rust-version` property inside [Cargo.toml](./Cargo.toml).
 - Define a new version according to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and update it inside the following files:
   - Update the `version` property in [Cargo.toml](./Cargo.toml) to the new version.
-  - Rename `Unreleased` section in [CHANGELOG.md](./CHANGELOG.md) to the new version and current date.
-  - Update the tag version inside installation section of [README.md](./README.md) to the new version.
+  - Rename the `Unreleased` section in [CHANGELOG.md](./CHANGELOG.md) to the new version and current date.
+  - Update the tag version in the installation section of [README.md](./README.md) to the new version.
 - Rebuild [Cargo.lock](./Cargo.lock) by running `cargo build`.
 - Commit changes with message `v<version>`.
 - Run `cargo publish` to publish the crate to crates.io.
