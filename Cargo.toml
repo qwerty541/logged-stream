@@ -46,6 +46,10 @@ path = "examples/tokio-tcp-stream-console-logger.rs"
 name = "file-logger"
 path = "examples/file-logger.rs"
 
+[[example]]
+name = "composite-filters"
+path = "examples/composite-filters.rs"
+
 [[bench]]
 name = "buffer-formatter"
 path = "benches/buffer-formatter.rs"
