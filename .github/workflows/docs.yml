@@ -5,9 +5,19 @@ on:
     branches: [master]
 
 permissions:
+  actions: write
+  checks: read
   contents: read
-  pages: write
+  deployments: read
   id-token: write
+  issues: read
+  discussions: read
+  packages: read
+  pages: write
+  pull-requests: read
+  repository-projects: read
+  security-events: read
+  statuses: read
 
 jobs:
   build:
@@ -34,7 +44,7 @@ jobs:
           mv target/doc/* _site/master
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
 
   deploy:
     name: Deploy to GitHub Pages
