@@ -12,6 +12,24 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  actions: write
+  artifact-metadata: none
+  attestations: none
+  checks: none
+  contents: read
+  deployments: none
+  discussions: none
+  id-token: none
+  issues: none
+  models: none
+  packages: none
+  pages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
 jobs:
   clippy:
     name: Clippy
