@@ -58,6 +58,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
