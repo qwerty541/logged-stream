@@ -1,6 +1,6 @@
+use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
-use criterion::Criterion;
 use logged_stream::BinaryFormatter;
 use logged_stream::BufferFormatter;
 use logged_stream::DecimalFormatter;
