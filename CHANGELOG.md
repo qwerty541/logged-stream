@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Migrated the codebase to the 2024 edition of Rust.
+- Bumped MSRV from 1.71.1 to 1.85.1.
+
+### Documentation
+
+- Updated copyright year in license file to 2023-2026.
+- Updated the README and CONTRIBUTING documents with the new MSRV and other relevant information.
+
+### Dependencies
+
+- Updated `tokio` from 1.49.0 to 1.52.3
+- Updated `env_logger` from 0.11.6 to 0.11.10
+
 ## v0.5.0 (28.02.2026)
 
 ### Added
