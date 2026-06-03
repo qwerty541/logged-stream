@@ -1,8 +1,8 @@
+use log::LevelFilter;
 use logged_stream::ConsoleLogger;
 use logged_stream::DefaultFilter;
 use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
-use std::env;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net;
@@ -21,8 +21,9 @@ async fn handle_connection(mut stream: net::TcpStream) {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
-    env::set_var("RUST_LOG", "debug");
     env_logger::builder()
+        .parse_default_env()
+        .filter_level(LevelFilter::Debug)
         .default_format()
         .format_timestamp_millis()
         .init();

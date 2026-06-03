@@ -1,5 +1,5 @@
-use crate::record::Record;
 use crate::RecordKind;
+use crate::record::Record;
 use std::collections;
 use std::io::Write;
 use std::str::FromStr;
