@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated `tokio` from 1.49.0 to 1.52.3
 - Updated `env_logger` from 0.11.6 to 0.11.10
+- Updated `chrono` from 0.4.43 to 0.4.44
 
 ## v0.5.0 (28.02.2026)
 
