@@ -1,10 +1,10 @@
+use crate::ChannelLogger;
+use crate::MemoryStorageLogger;
+use crate::RecordFilter;
 use crate::buffer_formatter::BufferFormatter;
 use crate::logger::Logger;
 use crate::record::Record;
 use crate::record::RecordKind;
-use crate::ChannelLogger;
-use crate::MemoryStorageLogger;
-use crate::RecordFilter;
 use std::collections;
 use std::fmt;
 use std::io;
@@ -116,11 +116,11 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
 }
 
 impl<
-        S: fmt::Debug + 'static,
-        Formatter: fmt::Debug + 'static,
-        Filter: RecordFilter + fmt::Debug + 'static,
-        L: Logger + fmt::Debug + 'static,
-    > fmt::Debug for LoggedStream<S, Formatter, Filter, L>
+    S: fmt::Debug + 'static,
+    Formatter: fmt::Debug + 'static,
+    Filter: RecordFilter + fmt::Debug + 'static,
+    L: Logger + fmt::Debug + 'static,
+> fmt::Debug for LoggedStream<S, Formatter, Filter, L>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LoggedStream")
@@ -133,11 +133,11 @@ impl<
 }
 
 impl<
-        S: io::Read + 'static,
-        Formatter: BufferFormatter + 'static,
-        Filter: RecordFilter + 'static,
-        L: Logger + 'static,
-    > io::Read for LoggedStream<S, Formatter, Filter, L>
+    S: io::Read + 'static,
+    Formatter: BufferFormatter + 'static,
+    Filter: RecordFilter + 'static,
+    L: Logger + 'static,
+> io::Read for LoggedStream<S, Formatter, Filter, L>
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let result = self.inner_stream.read(buf);
@@ -164,11 +164,11 @@ impl<
 }
 
 impl<
-        S: tokio_io::AsyncRead + Unpin + 'static,
-        Formatter: BufferFormatter + Unpin + 'static,
-        Filter: RecordFilter + Unpin + 'static,
-        L: Logger + Unpin + 'static,
-    > tokio_io::AsyncRead for LoggedStream<S, Formatter, Filter, L>
+    S: tokio_io::AsyncRead + Unpin + 'static,
+    Formatter: BufferFormatter + Unpin + 'static,
+    Filter: RecordFilter + Unpin + 'static,
+    L: Logger + Unpin + 'static,
+> tokio_io::AsyncRead for LoggedStream<S, Formatter, Filter, L>
 {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -206,11 +206,11 @@ impl<
 }
 
 impl<
-        S: io::Write + 'static,
-        Formatter: BufferFormatter + 'static,
-        Filter: RecordFilter + 'static,
-        L: Logger + 'static,
-    > io::Write for LoggedStream<S, Formatter, Filter, L>
+    S: io::Write + 'static,
+    Formatter: BufferFormatter + 'static,
+    Filter: RecordFilter + 'static,
+    L: Logger + 'static,
+> io::Write for LoggedStream<S, Formatter, Filter, L>
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let result = self.inner_stream.write(buf);
@@ -245,11 +245,11 @@ impl<
 }
 
 impl<
-        S: tokio_io::AsyncWrite + Unpin + 'static,
-        Formatter: BufferFormatter + Unpin + 'static,
-        Filter: RecordFilter + Unpin + 'static,
-        L: Logger + Unpin + 'static,
-    > tokio_io::AsyncWrite for LoggedStream<S, Formatter, Filter, L>
+    S: tokio_io::AsyncWrite + Unpin + 'static,
+    Formatter: BufferFormatter + Unpin + 'static,
+    Filter: RecordFilter + Unpin + 'static,
+    L: Logger + Unpin + 'static,
+> tokio_io::AsyncWrite for LoggedStream<S, Formatter, Filter, L>
 {
     fn poll_write(
         self: Pin<&mut Self>,
