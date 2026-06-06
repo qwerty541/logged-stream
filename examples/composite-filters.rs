@@ -1,3 +1,4 @@
+use log::LevelFilter;
 use logged_stream::AllFilter;
 use logged_stream::AnyFilter;
 use logged_stream::ConsoleLogger;
@@ -6,7 +7,6 @@ use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
 use logged_stream::RecordKind;
 use logged_stream::RecordKindFilter;
-use std::env;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Write;
@@ -15,8 +15,9 @@ use std::io::Write;
 /// to create complex filtering logic for LoggedStream.
 fn main() {
     // Set up logging
-    env::set_var("RUST_LOG", "debug");
     env_logger::builder()
+        .parse_default_env()
+        .filter_level(LevelFilter::Debug)
         .default_format()
         .format_timestamp_millis()
         .init();
