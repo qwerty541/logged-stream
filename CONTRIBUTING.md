@@ -52,7 +52,7 @@ This project adheres to a Code of Conduct. By participating, you agree to uphold
 
 ### Toolchain and MSRV
 
-- Edition: 2021
+- Edition: 2024
 - MSRV: 1.85.1 (see `rust-version` in `Cargo.toml`)
 
 Please avoid raising MSRV in PRs unless discussed first. If MSRV must increase, mention it explicitly in the PR description and include an entry under the "Unreleased" section of `CHANGELOG.md`.
