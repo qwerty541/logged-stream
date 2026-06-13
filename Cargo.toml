@@ -20,9 +20,9 @@ rust-version = "1.85.1"
 include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE-*", "README.md"]
 
 [dependencies]
-chrono = "0.4.44"
+chrono = "0.4.45"
 itertools = "0.14.0"
-log = "0.4.30"
+log = "0.4.32"
 tokio = { version = "1.52.3", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
