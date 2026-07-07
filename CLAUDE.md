@@ -56,6 +56,25 @@ parts. A record flows: **event → Formatter → Filter → Logger**.
 - **Loggers:** `ConsoleLogger` (via `log` facade), `MemoryStorageLogger` (bounded
   `VecDeque`), `ChannelLogger` (`mpsc`), `FileLogger` (writes to a file).
 
+### Real-world usage (downstream reference)
+
+The author's own [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) CLI
+(crates.io: `logged_tcp_proxy`) is the canonical consumer and the clearest mental model
+for what this library is *for*: a transparent TCP man-in-the-middle that relays bytes
+unchanged and prints the payload of each connection. It exercises the intended patterns:
+
+- Wrap a `tokio::net::TcpStream` in `LoggedStream::new(stream, formatter, filter, logger)`,
+  then `tokio::io::split(...)` the wrapper into read/write halves — the `AsyncRead +
+  AsyncWrite` impls carry logging transparently through a bidirectional relay.
+- Select a formatter at runtime as a `Box<dyn BufferFormatter>` (driven by a CLI flag),
+  passing a user-supplied separator via `Formatter::new(Some(sep))` — precisely why the
+  traits are object-safe and `new` takes `Option<&str>`.
+- Run **two `LoggedStream`s per connection** to avoid double-logging: the client side uses
+  `DefaultFilter` (payload + lifecycle), while the server side uses
+  `RecordKindFilter::new(&[Drop, Error, Shutdown])` to keep lifecycle records but suppress
+  the duplicate `Read`/`Write` payload — a deliberate use of the "filters run on every
+  record kind" behavior noted below.
+
 ## Conventions and invariants to preserve
 
 These are load-bearing — breaking them is a breaking API change and must be reflected in
