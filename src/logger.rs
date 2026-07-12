@@ -1,5 +1,6 @@
 use crate::RecordKind;
 use crate::record::Record;
+use std::borrow::Cow;
 use std::collections;
 use std::io::Write;
 use std::str::FromStr;
@@ -41,24 +42,87 @@ impl Logger for Box<dyn Logger> {
 /// [`log::Level`]. Log records with the [`Error`] kind ignore the provided [`log::Level`] and are always written
 /// with [`log::Level::Error`].
 ///
+/// Optionally, a prefix can be configured via [`with_prefix`] or [`set_prefix`]. When set, it is printed
+/// verbatim at the beginning of every log line, before the record kind character. This is useful to
+/// disambiguate output when several [`LoggedStream`]s (for example one per connection) log to the same
+/// console. No prefix is configured by default.
+///
 /// [`Error`]: crate::RecordKind::Error
+/// [`with_prefix`]: ConsoleLogger::with_prefix
+/// [`set_prefix`]: ConsoleLogger::set_prefix
+/// [`LoggedStream`]: crate::LoggedStream
 #[derive(Debug, Clone)]
 pub struct ConsoleLogger {
     level: log::Level,
+    prefix: Option<Cow<'static, str>>,
 }
 
 impl ConsoleLogger {
     /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Returns an [`Err`] in
-    /// case if provided log level [`str`] was incorrect.
+    /// case if provided log level [`str`] was incorrect. The constructed logger has no prefix; use
+    /// [`with_prefix`] or [`set_prefix`] to add one.
+    ///
+    /// [`with_prefix`]: ConsoleLogger::with_prefix
+    /// [`set_prefix`]: ConsoleLogger::set_prefix
     pub fn new(level: &str) -> Result<Self, log::ParseLevelError> {
         let level = log::Level::from_str(level)?;
-        Ok(Self { level })
+        Ok(Self {
+            level,
+            prefix: None,
+        })
     }
 
     /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Panics in case if
     /// provided log level [`str`] was incorrect.
     pub fn new_unchecked(level: &str) -> Self {
         Self::new(level).unwrap()
+    }
+
+    /// Set a prefix that will be printed at the beginning of every log line produced by this logger, and
+    /// return the modified logger. This is a chainable builder method.
+    ///
+    /// The prefix is rendered verbatim before the record kind character, so include any trailing separator
+    /// you want yourself (for example a trailing space or brackets).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logged_stream::ConsoleLogger;
+    ///
+    /// let logger = ConsoleLogger::new_unchecked("debug").with_prefix("[conn 5] ");
+    /// assert_eq!(logger.prefix(), Some("[conn 5] "));
+    /// ```
+    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set or replace the prefix printed at the beginning of every log line produced by this logger, in
+    /// place. See [`with_prefix`] for details on how the prefix is rendered.
+    ///
+    /// [`with_prefix`]: ConsoleLogger::with_prefix
+    pub fn set_prefix(&mut self, prefix: impl Into<Cow<'static, str>>) {
+        self.prefix = Some(prefix.into());
+    }
+
+    /// Remove the configured prefix, so log lines are printed without any leading prefix again.
+    pub fn clear_prefix(&mut self) {
+        self.prefix = None;
+    }
+
+    /// Return the currently configured prefix, or [`None`] if no prefix is set.
+    #[inline]
+    pub fn prefix(&self) -> Option<&str> {
+        self.prefix.as_deref()
+    }
+
+    /// Render a log record into the string written to the console, prepending the configured prefix
+    /// (if any) before the record kind character and message.
+    fn render(&self, record: &Record) -> String {
+        match &self.prefix {
+            Some(prefix) => format!("{}{} {}", prefix, record.kind, record.message),
+            None => format!("{} {}", record.kind, record.message),
+        }
     }
 }
 
@@ -68,7 +132,7 @@ impl Logger for ConsoleLogger {
             RecordKind::Error => log::Level::Error,
             _ => self.level,
         };
-        log::log!(level, "{} {}", record.kind, record.message)
+        log::log!(level, "{}", self.render(&record))
     }
 }
 
@@ -275,6 +339,52 @@ mod tests {
         assert_logger::<Box<MemoryStorageLogger>>();
         assert_logger::<Box<ChannelLogger>>();
         assert_logger::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_console_logger_prefix_default_none() {
+        assert_eq!(ConsoleLogger::new_unchecked("debug").prefix(), None);
+        assert_eq!(ConsoleLogger::new("info").unwrap().prefix(), None);
+    }
+
+    #[test]
+    fn test_console_logger_with_prefix() {
+        // Static string literal.
+        let logger = ConsoleLogger::new_unchecked("debug").with_prefix("[conn 5] ");
+        assert_eq!(logger.prefix(), Some("[conn 5] "));
+
+        // Owned runtime string (the typical case for a per-connection identifier).
+        let id = 42;
+        let logger = ConsoleLogger::new_unchecked("debug").with_prefix(format!("[conn {id}] "));
+        assert_eq!(logger.prefix(), Some("[conn 42] "));
+    }
+
+    #[test]
+    fn test_console_logger_set_and_clear_prefix() {
+        let mut logger = ConsoleLogger::new_unchecked("debug");
+        assert_eq!(logger.prefix(), None);
+
+        logger.set_prefix(String::from("[server] "));
+        assert_eq!(logger.prefix(), Some("[server] "));
+
+        logger.set_prefix("[client] ");
+        assert_eq!(logger.prefix(), Some("[client] "));
+
+        logger.clear_prefix();
+        assert_eq!(logger.prefix(), None);
+    }
+
+    #[test]
+    fn test_console_logger_render_prefix() {
+        let record = Record::new(RecordKind::Write, String::from("ab:cd"));
+
+        // Without a prefix, rendering matches the historical `"{kind} {message}"` format.
+        let logger = ConsoleLogger::new_unchecked("debug");
+        assert_eq!(logger.render(&record), "> ab:cd");
+
+        // With a prefix, it is prepended verbatim before the kind character.
+        let logger = logger.with_prefix("[conn 5] ");
+        assert_eq!(logger.render(&record), "[conn 5] > ab:cd");
     }
 
     fn assert_send<T: Send>() {}
