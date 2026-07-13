@@ -81,8 +81,9 @@ impl ConsoleLogger {
     /// Set a prefix that will be printed at the beginning of every log line produced by this logger, and
     /// return the modified logger. This is a chainable builder method.
     ///
-    /// The prefix is rendered verbatim before the record kind character, so include any trailing separator
-    /// you want yourself (for example a trailing space or brackets).
+    /// The prefix is rendered verbatim immediately before the record kind character — no separator is
+    /// inserted between them — so include any trailing separator you want yourself (for example a trailing
+    /// space or brackets). An empty prefix therefore produces the same output as no prefix at all.
     ///
     /// # Examples
     ///
