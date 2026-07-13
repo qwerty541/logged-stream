@@ -53,7 +53,8 @@ parts. A record flows: **event → Formatter → Filter → Logger**.
 - **Filters:** `DefaultFilter` (accepts all), `RecordKindFilter` (allow-list of kinds),
   `AllFilter`/`AnyFilter` (combine `Box<dyn RecordFilter>`; empty `AllFilter` is `true`,
   empty `AnyFilter` is `false`).
-- **Loggers:** `ConsoleLogger` (via `log` facade), `MemoryStorageLogger` (bounded
+- **Loggers:** `ConsoleLogger` (via `log` facade; supports an optional per-instance line
+  prefix via `with_prefix`/`set_prefix`, `None` by default), `MemoryStorageLogger` (bounded
   `VecDeque`), `ChannelLogger` (`mpsc`), `FileLogger` (writes to a file).
 
 ### Real-world usage (downstream reference)
