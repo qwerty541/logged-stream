@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Created CLAUDE.md with codebase guidance for AI-assisted development.
 
+### Dependencies
+
+- Updated `chrono` from 0.4.44 to 0.4.45
+- Updated `log` from 0.4.30 to 0.4.33
+- Updated `itertools` from 0.14.0 to 0.15.0
+- Updated `env_logger` from 0.11.10 to 0.11.11
+
 ## v0.6.0 (06.06.2026)
 
 ### Changed
