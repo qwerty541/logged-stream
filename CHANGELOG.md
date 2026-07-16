@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Restructured the crate description in the README and the mirrored crate-level and `LoggedStream` rustdoc: split the four-part overview into an *Architecture* section and a table-based *Provided implementations* section for easier scanning.
 - Created CLAUDE.md with codebase guidance for AI-assisted development.
 
 ### Dependencies
