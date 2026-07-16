@@ -96,9 +96,11 @@ tests, docs, and the changelog.
   per line, no brace-grouped imports** — and `use_field_init_shorthand = true`. Match
   the surrounding files exactly; `cargo fmt` enforces this.
 - **Docs are duplicated on purpose:** the crate-level overview appears in both
-  [lib.rs](src/lib.rs) and on the `LoggedStream` type in [stream.rs](src/stream.rs).
-  If you change the list of formatters/filters/loggers or the four-part description,
-  update **both** (and the README).
+  [lib.rs](src/lib.rs) and on the `LoggedStream` type in [stream.rs](src/stream.rs), and is
+  mirrored in prose in [README.md](README.md). All three share the same shape — an *Architecture*
+  overview plus *Provided implementations* tables of formatters/filters/loggers. If you change the
+  list of implementations or the four-part description, update **all three** and keep that
+  structure in sync.
 
 ### Behavioral gotchas
 
