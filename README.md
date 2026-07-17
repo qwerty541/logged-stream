@@ -97,21 +97,13 @@ Consume each accepted record.
 
 ### Use Cases
 
-- Network Traffic Monitoring:
-   - Monitor and log all incoming and outgoing network traffic in a server or client application.
-   - Useful for debugging network protocols, tracking data exchange, and ensuring security compliance.
-- Debugging I/O Operations:
-   - Log all read and write operations to diagnose issues with file or network I/O.
-   - Helps in identifying bottlenecks, data corruption, and unexpected behavior in I/O operations.
-- Performance Analysis:
-   - Analyze the performance of I/O operations by logging the time taken for each read/write operation.
-   - Helps in identifying performance issues and optimizing I/O-intensive applications.
-- Database Activity Logging:
-  - Log all interactions with a database, including queries, updates, and transaction details.
-  - Helps in database performance tuning, debugging query issues, and maintaining audit logs.
-- Proxy Servers:
-  - Implement logging in proxy servers to monitor and log all forwarded traffic.
-  - Useful for debugging proxy behavior and ensuring proper data routing.
+`LoggedStream` hands you a formatted, filterable, timestamped record of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
+
+-   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to record every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
+-   **I/O debugging** — see the exact bytes moving through a file, socket, or any custom stream, alongside the errors, shutdowns, and drops around them, to pin down data corruption or where a connection unexpectedly closed.
+-   **Protocol and application-traffic capture** — log the raw wire traffic of a protocol you are implementing or reverse-engineering, such as a database driver, an RPC channel, or a custom binary format. `LoggedStream` captures the bytes; decode or parse them downstream if you need higher-level detail like SQL statements.
+-   **Timing and throughput diagnostics** — every record is timestamped, so you can layer your own cadence, gap, and throughput analysis on top: when reads and writes happened and how much data moved. (The timestamps are yours to correlate — the library does not measure per-call latency itself.)
+-   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while recording it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
 
 ## Usage
 
