@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - Restructured the crate description in the README and the mirrored crate-level and `LoggedStream` rustdoc: split the four-part overview into an *Architecture* section and a table-based *Provided implementations* section for easier scanning.
+- Documented that wrapping a `BufferFormatter` in `Arc<T>` requires `T: Sync` (unlike `Box<...>`): the concrete formatters satisfy this, but an erased trait object must be written as `Arc<dyn BufferFormatter + Sync>`.
 - Created CLAUDE.md with codebase guidance for AI-assisted development.
 
 ### Dependencies
