@@ -36,7 +36,7 @@ use tokio::io as tokio_io;
 /// -   **Logger ([`Logger`]).** The sink that consumes accepted records.
 ///
 /// All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
-/// and object-safe, with blanket implementations for `Box<...>` (and `Arc<...>` for
+/// and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for
 /// [`BufferFormatter`]). You are free to supply your own implementation of any part.
 ///
 /// # Provided implementations

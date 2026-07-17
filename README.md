@@ -57,7 +57,7 @@ event  ->  Formatter  ->  Filter  ->  Logger
 -   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`.
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
-All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<...>` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object.
+All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object.
 
 ### Provided implementations
 
