@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restructured the crate description in the README and the mirrored crate-level and `LoggedStream` rustdoc: split the four-part overview into an *Architecture* section and a table-based *Provided implementations* section for easier scanning.
 - Documented that wrapping a `BufferFormatter` in `Arc<T>` requires `T: Sync` (unlike `Box<...>`): the concrete formatters satisfy this, but an erased trait object must be written as `Arc<dyn BufferFormatter + Sync>`.
+- Rewrote the README *Use Cases* section: reframed the examples around what you can build with the library and corrected wording that implied built-in features the crate does not provide (per-operation latency measurement, parsed database queries).
 - Created CLAUDE.md with codebase guidance for AI-assisted development.
 
 ### Dependencies
