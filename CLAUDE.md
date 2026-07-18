@@ -104,9 +104,10 @@ tests, docs, and the changelog.
 
 ### Behavioral gotchas
 
-- **`RecordKind::Open` is defined but never emitted** by `LoggedStream`. Reads emit
-  `Read`, writes `Write`, `poll_shutdown` emits `Shutdown`, `Drop` emits `Drop`
-  (`"Deallocated."`), and IO errors emit `Error`. Don't assume `Open` fires.
+- **`RecordKind::Open` is never emitted automatically.** The read/write/shutdown/drop machinery
+  only produces `Read`, `Write`, `Shutdown`, `Drop` (`"Deallocated."`) and `Error`. `Open` is
+  emitted solely when the user calls `LoggedStream::log_open(message)` to record a manual marker
+  (e.g. connection start); it passes through the filter like any other record.
 - **Errors are partly swallowed:** sync `read` ignores `WouldBlock`; sync `write`
   ignores `WriteZero | WouldBlock`; async paths treat `Poll::Pending` / zero-length
   reads as non-events. Only "real" errors produce an `Error` record.

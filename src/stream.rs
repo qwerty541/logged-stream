@@ -115,6 +115,26 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
             logger,
         }
     }
+
+    /// Emit a custom [`RecordKind::Open`] record carrying `message`.
+    ///
+    /// [`RecordKind::Open`] is never produced automatically by the read, write, shutdown and drop
+    /// machinery — this method is the way to emit one. Use it to annotate the start of a stream,
+    /// for example to record the peer of a freshly established connection
+    /// (`"Established connection with 127.0.0.1:8080"`) or other per-stream metadata.
+    ///
+    /// Like every other record, the `Open` record is passed through the filter before it reaches
+    /// the logger, so a `RecordKindFilter` that does not allow `Open` will suppress it. The message
+    /// is logged verbatim; it is not run through the formatter, which only applies to byte buffers.
+    ///
+    /// For asynchronous streams, call this before splitting the wrapper with `tokio::io::split`,
+    /// since the resulting halves do not expose it.
+    pub fn log_open(&mut self, message: impl Into<String>) {
+        let record = Record::new(RecordKind::Open, message.into());
+        if self.filter.check(&record) {
+            self.logger.log(record);
+        }
+    }
 }
 
 impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
@@ -333,5 +353,63 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
         if self.filter.check(&record) {
             self.logger.log(record);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::DefaultFilter;
+    use crate::LoggedStream;
+    use crate::LowercaseHexadecimalFormatter;
+    use crate::MemoryStorageLogger;
+    use crate::RecordKind;
+    use crate::RecordKindFilter;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_log_open_emits_open_record() {
+        let mut stream = LoggedStream::new(
+            Cursor::new(Vec::<u8>::new()),
+            LowercaseHexadecimalFormatter::new_default(),
+            DefaultFilter,
+            MemoryStorageLogger::new(16),
+        );
+        stream.log_open("Established connection with 127.0.0.1:8080");
+
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Open);
+        assert_eq!(
+            records[0].message,
+            "Established connection with 127.0.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn test_log_open_suppressed_by_filter_without_open() {
+        let mut stream = LoggedStream::new(
+            Cursor::new(Vec::<u8>::new()),
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+        stream.log_open("should be filtered out");
+        assert!(stream.get_log_records().is_empty());
+    }
+
+    #[test]
+    fn test_log_open_passes_filter_allowing_open() {
+        let mut stream = LoggedStream::new(
+            Cursor::new(Vec::<u8>::new()),
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Open]),
+            MemoryStorageLogger::new(16),
+        );
+        stream.log_open("kept");
+
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Open);
+        assert_eq!(records[0].message, "kept");
     }
 }
