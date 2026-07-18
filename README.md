@@ -191,7 +191,9 @@ Every log line begins with a single character identifying the kind of event:
 | `!` | Error | a real IO error occurred (transient `WouldBlock` / `WriteZero` are skipped) |
 | `-` | Shutdown | an asynchronous stream was shut down (`poll_shutdown`) |
 | `x` | Drop | the wrapper was dropped (message `Deallocated.`) |
-| `+` | Open | defined for completeness, but never emitted in practice |
+| `+` | Open | a manual marker you emit yourself with `log_open` (e.g. connection start); never produced automatically |
+
+Every kind except `Open` is produced automatically. `Open` is a marker you record yourself with `LoggedStream::log_open` — for example `stream.log_open(format!("Established connection with {peer}"))` right after a connection is established. Like any record, it passes through the filter, so a `RecordKindFilter` that omits `Open` will suppress it.
 
 ## Architecture
 
