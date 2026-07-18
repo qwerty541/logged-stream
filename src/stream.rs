@@ -130,7 +130,15 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
     /// For asynchronous streams, call this before splitting the wrapper with `tokio::io::split`,
     /// since the resulting halves do not expose it.
     pub fn log_open(&mut self, message: impl Into<String>) {
-        let record = Record::new(RecordKind::Open, message.into());
+        self.emit(Record::new(RecordKind::Open, message.into()));
+    }
+
+    /// Route a record through the filter, logging it only if the filter accepts it.
+    ///
+    /// Every record — reads, writes, errors, shutdowns, drops and manual `Open` markers — is
+    /// emitted through this single method, so the filter is applied consistently to all of them.
+    #[inline]
+    fn emit(&mut self, record: Record) {
         if self.filter.check(&record) {
             self.logger.log(record);
         }
@@ -198,15 +206,15 @@ impl<
                     RecordKind::Read,
                     self.formatter.format_buffer(&buf[0..*length]),
                 );
-                if self.filter.check(&record) {
-                    self.logger.log(record);
-                }
+                self.emit(record);
             }
             Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {}
-            Err(e) => self.logger.log(Record::new(
-                RecordKind::Error,
-                format!("Error during read: {e}"),
-            )),
+            Err(e) => {
+                self.emit(Record::new(
+                    RecordKind::Error,
+                    format!("Error during read: {e}"),
+                ));
+            }
         };
 
         result
@@ -240,14 +248,14 @@ impl<
                         .formatter
                         .format_buffer(&(buf.filled())[length_before_read..length_after_read]),
                 );
-                if mut_self.filter.check(&record) {
-                    mut_self.logger.log(record);
-                }
+                mut_self.emit(record);
             }
-            Poll::Ready(Err(e)) => mut_self.logger.log(Record::new(
-                RecordKind::Error,
-                format!("Error during async read: {e}"),
-            )),
+            Poll::Ready(Err(e)) => {
+                mut_self.emit(Record::new(
+                    RecordKind::Error,
+                    format!("Error during async read: {e}"),
+                ));
+            }
             Poll::Pending => {}
         }
 
@@ -271,19 +279,19 @@ impl<
                     RecordKind::Write,
                     self.formatter.format_buffer(&buf[0..*length]),
                 );
-                if self.filter.check(&record) {
-                    self.logger.log(record);
-                }
+                self.emit(record);
             }
             Err(e)
                 if matches!(
                     e.kind(),
                     io::ErrorKind::WriteZero | io::ErrorKind::WouldBlock
                 ) => {}
-            Err(e) => self.logger.log(Record::new(
-                RecordKind::Error,
-                format!("Error during write: {e}"),
-            )),
+            Err(e) => {
+                self.emit(Record::new(
+                    RecordKind::Error,
+                    format!("Error during write: {e}"),
+                ));
+            }
         };
 
         result
@@ -314,14 +322,14 @@ impl<
                     RecordKind::Write,
                     mut_self.formatter.format_buffer(&buf[0..*length]),
                 );
-                if mut_self.filter.check(&record) {
-                    mut_self.logger.log(record);
-                }
+                mut_self.emit(record);
             }
-            Poll::Ready(Err(e)) => mut_self.logger.log(Record::new(
-                RecordKind::Error,
-                format!("Error during async write: {e}"),
-            )),
+            Poll::Ready(Err(e)) => {
+                mut_self.emit(Record::new(
+                    RecordKind::Error,
+                    format!("Error during async write: {e}"),
+                ));
+            }
             Poll::Pending => {}
         }
         result
@@ -334,13 +342,10 @@ impl<
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_shutdown(cx);
-        let record = Record::new(
+        mut_self.emit(Record::new(
             RecordKind::Shutdown,
             String::from("Writer shutdown request."),
-        );
-        if mut_self.filter.check(&record) {
-            mut_self.logger.log(record);
-        }
+        ));
         result
     }
 }
@@ -349,10 +354,7 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
     for LoggedStream<S, Formatter, Filter, L>
 {
     fn drop(&mut self) {
-        let record = Record::new(RecordKind::Drop, String::from("Deallocated."));
-        if self.filter.check(&record) {
-            self.logger.log(record);
-        }
+        self.emit(Record::new(RecordKind::Drop, String::from("Deallocated.")));
     }
 }
 
@@ -365,6 +367,13 @@ mod tests {
     use crate::RecordKind;
     use crate::RecordKindFilter;
     use std::io::Cursor;
+    use std::io::Read;
+    use std::io::Write;
+    use std::pin::Pin;
+    use std::task::Context;
+    use std::task::Poll;
+    use tokio::io::AsyncReadExt;
+    use tokio::io::AsyncWriteExt;
 
     #[test]
     fn test_log_open_emits_open_record() {
@@ -411,5 +420,133 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].kind, RecordKind::Open);
         assert_eq!(records[0].message, "kept");
+    }
+
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("boom"))
+        }
+    }
+
+    struct FailingWriter;
+
+    impl Write for FailingWriter {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("boom"))
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    struct FailingAsyncReader;
+
+    impl tokio::io::AsyncRead for FailingAsyncReader {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Err(std::io::Error::other("boom")))
+        }
+    }
+
+    #[test]
+    fn test_read_error_suppressed_by_filter_without_error() {
+        let mut stream = LoggedStream::new(
+            FailingReader,
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 4];
+        let _ = stream.read(&mut buf);
+
+        // The Error record must be suppressed because the filter does not allow Error.
+        assert!(stream.get_log_records().is_empty());
+    }
+
+    #[test]
+    fn test_read_error_passes_default_filter() {
+        let mut stream = LoggedStream::new(
+            FailingReader,
+            LowercaseHexadecimalFormatter::new_default(),
+            DefaultFilter,
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 4];
+        let _ = stream.read(&mut buf);
+
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Error);
+    }
+
+    #[test]
+    fn test_write_error_suppressed_by_filter_without_error() {
+        let mut stream = LoggedStream::new(
+            FailingWriter,
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let _ = stream.write(&[0x01, 0x02]);
+
+        assert!(stream.get_log_records().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_async_read_error_suppressed_by_filter_without_error() {
+        let mut stream = LoggedStream::new(
+            FailingAsyncReader,
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 4];
+        let _ = stream.read(&mut buf).await;
+
+        assert!(stream.get_log_records().is_empty());
+    }
+
+    struct FailingAsyncWriter;
+
+    impl tokio::io::AsyncWrite for FailingAsyncWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Err(std::io::Error::other("boom")))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_async_write_error_suppressed_by_filter_without_error() {
+        let mut stream = LoggedStream::new(
+            FailingAsyncWriter,
+            LowercaseHexadecimalFormatter::new_default(),
+            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let _ = stream.write(&[0x01, 0x02]).await;
+
+        assert!(stream.get_log_records().is_empty());
     }
 }

@@ -111,8 +111,9 @@ tests, docs, and the changelog.
 - **Errors are partly swallowed:** sync `read` ignores `WouldBlock`; sync `write`
   ignores `WriteZero | WouldBlock`; async paths treat `Poll::Pending` / zero-length
   reads as non-events. Only "real" errors produce an `Error` record.
-- **Filter runs on every record kind**, including `Drop` and `Shutdown` — a
-  `RecordKindFilter` that omits those kinds will suppress their log lines.
+- **Filter runs on every record kind**, including `Error`, `Shutdown` and `Drop` — a
+  `RecordKindFilter` that omits a kind will suppress its log lines. Every record is routed
+  through the private `LoggedStream::emit` helper, so the filter is applied uniformly.
 
 ## Common commands
 
