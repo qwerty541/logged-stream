@@ -908,6 +908,45 @@ mod tests {
         assert!(stream.get_log_records().is_empty());
     }
 
+    #[tokio::test]
+    async fn test_async_read_error_logs_error_record() {
+        use tokio::io::AsyncReadExt;
+
+        let mut stream = LoggedStream::new(
+            ErrAsyncReader(ErrorKind::Other),
+            LowercaseHexadecimalFormatter::new_default(),
+            DefaultFilter,
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 4];
+        let _ = stream.read(&mut buf).await;
+
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Error);
+        assert!(records[0].message.starts_with("Error during async read:"));
+    }
+
+    #[tokio::test]
+    async fn test_async_write_error_logs_error_record() {
+        use tokio::io::AsyncWriteExt;
+
+        let mut stream = LoggedStream::new(
+            ErrAsyncWriter(ErrorKind::Other),
+            LowercaseHexadecimalFormatter::new_default(),
+            DefaultFilter,
+            MemoryStorageLogger::new(16),
+        );
+
+        let _ = stream.write(&[0x01, 0x02]).await;
+
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Error);
+        assert!(records[0].message.starts_with("Error during async write:"));
+    }
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Logger accessors
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
