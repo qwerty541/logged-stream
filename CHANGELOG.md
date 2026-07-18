@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added an optional line prefix to `ConsoleLogger`, configurable via the new `with_prefix`, `set_prefix`, `clear_prefix` and `prefix` methods. When set, the prefix is printed at the beginning of every log line, which helps disambiguate output when several `LoggedStream`s (for example one per connection) log to the same console. No prefix is configured by default, so existing usage is unaffected.
+- Added `LoggedStream::log_open`, which emits a custom `Open` record (the `+` marker) carrying a caller-supplied message — for example to mark the start of a connection (`"Established connection with 127.0.0.1:8080"`). The record passes through the filter like any other; `RecordKind::Open` is otherwise never emitted automatically.
 
 ### Documentation
 
