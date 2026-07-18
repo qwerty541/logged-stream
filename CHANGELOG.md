@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added an optional line prefix to `ConsoleLogger`, configurable via the new `with_prefix`, `set_prefix`, `clear_prefix` and `prefix` methods. When set, the prefix is printed at the beginning of every log line, which helps disambiguate output when several `LoggedStream`s (for example one per connection) log to the same console. No prefix is configured by default, so existing usage is unaffected.
+
+### Documentation
+
+- Created CLAUDE.md with codebase guidance for AI-assisted development.
+
+### Dependencies
+
+- Updated `chrono` from 0.4.44 to 0.4.45
+- Updated `log` from 0.4.30 to 0.4.33
+- Updated `itertools` from 0.14.0 to 0.15.0
+- Updated `env_logger` from 0.11.10 to 0.11.11
+
 ## v0.6.0 (06.06.2026)
 
 ### Changed

@@ -1,5 +1,6 @@
 use crate::RecordKind;
 use crate::record::Record;
+use std::borrow::Cow;
 use std::collections;
 use std::io::Write;
 use std::str::FromStr;
@@ -41,24 +42,79 @@ impl Logger for Box<dyn Logger> {
 /// [`log::Level`]. Log records with the [`Error`] kind ignore the provided [`log::Level`] and are always written
 /// with [`log::Level::Error`].
 ///
+/// Optionally, a prefix can be configured via [`with_prefix`] or [`set_prefix`]. When set, it is printed
+/// verbatim at the beginning of every log line, before the record kind character. This is useful to
+/// disambiguate output when several [`LoggedStream`]s (for example one per connection) log to the same
+/// console. No prefix is configured by default.
+///
 /// [`Error`]: crate::RecordKind::Error
+/// [`with_prefix`]: ConsoleLogger::with_prefix
+/// [`set_prefix`]: ConsoleLogger::set_prefix
+/// [`LoggedStream`]: crate::LoggedStream
 #[derive(Debug, Clone)]
 pub struct ConsoleLogger {
     level: log::Level,
+    prefix: Option<Cow<'static, str>>,
 }
 
 impl ConsoleLogger {
-    /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Returns an [`Err`] in
-    /// case if provided log level [`str`] was incorrect.
+    /// Construct a new instance of [`ConsoleLogger`] using the provided log level [`str`]. Returns an
+    /// [`Err`] if the provided log level is invalid. The constructed logger has no prefix; use
+    /// [`with_prefix`] or [`set_prefix`] to add one.
+    ///
+    /// [`with_prefix`]: ConsoleLogger::with_prefix
+    /// [`set_prefix`]: ConsoleLogger::set_prefix
     pub fn new(level: &str) -> Result<Self, log::ParseLevelError> {
         let level = log::Level::from_str(level)?;
-        Ok(Self { level })
+        Ok(Self {
+            level,
+            prefix: None,
+        })
     }
 
-    /// Construct a new instance of [`ConsoleLogger`] using provided log level [`str`]. Panics in case if
-    /// provided log level [`str`] was incorrect.
+    /// Construct a new instance of [`ConsoleLogger`] using the provided log level [`str`]. Panics if the
+    /// provided log level is invalid.
     pub fn new_unchecked(level: &str) -> Self {
         Self::new(level).unwrap()
+    }
+
+    /// Set a prefix that will be printed at the beginning of every log line produced by this logger, and
+    /// return the modified logger. This is a chainable builder method.
+    ///
+    /// The prefix is rendered verbatim immediately before the record kind character — no separator is
+    /// inserted between them — so include any trailing separator you want yourself (for example a trailing
+    /// space or brackets). An empty prefix therefore produces the same output as no prefix at all.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logged_stream::ConsoleLogger;
+    ///
+    /// let logger = ConsoleLogger::new_unchecked("debug").with_prefix("[conn 5] ");
+    /// assert_eq!(logger.prefix(), Some("[conn 5] "));
+    /// ```
+    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set or replace the prefix printed at the beginning of every log line produced by this logger, in
+    /// place. See [`with_prefix`] for details on how the prefix is rendered.
+    ///
+    /// [`with_prefix`]: ConsoleLogger::with_prefix
+    pub fn set_prefix(&mut self, prefix: impl Into<Cow<'static, str>>) {
+        self.prefix = Some(prefix.into());
+    }
+
+    /// Remove the configured prefix, so log lines are printed without any leading prefix again.
+    pub fn clear_prefix(&mut self) {
+        self.prefix = None;
+    }
+
+    /// Return the currently configured prefix, or [`None`] if no prefix is set.
+    #[inline]
+    pub fn prefix(&self) -> Option<&str> {
+        self.prefix.as_deref()
     }
 }
 
@@ -68,7 +124,14 @@ impl Logger for ConsoleLogger {
             RecordKind::Error => log::Level::Error,
             _ => self.level,
         };
-        log::log!(level, "{} {}", record.kind, record.message)
+        // Format the record straight into the `log::log!` arguments instead of building an
+        // intermediate `String`. The prefix-less path is byte-for-byte identical to the historical
+        // implementation and allocates nothing beyond what `log` itself does, and both paths keep
+        // formatting lazy so nothing is rendered when the level is disabled.
+        match self.prefix.as_deref() {
+            Some(prefix) => log::log!(level, "{}{} {}", prefix, record.kind, record.message),
+            None => log::log!(level, "{} {}", record.kind, record.message),
+        }
     }
 }
 
@@ -240,6 +303,49 @@ mod tests {
     use crate::logger::MemoryStorageLogger;
     use crate::record::Record;
     use crate::record::RecordKind;
+    use std::cell::RefCell;
+    use std::sync::Once;
+
+    // A minimal `log::Log` implementation used to capture the exact lines `ConsoleLogger` emits
+    // through the `log` facade. Captured lines are stored per-thread, so tests running in parallel
+    // never observe each other's output.
+    thread_local! {
+        static CAPTURED_LINES: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
+
+    struct CapturingLogger;
+
+    impl log::Log for CapturingLogger {
+        fn enabled(&self, _metadata: &log::Metadata<'_>) -> bool {
+            true
+        }
+
+        fn log(&self, record: &log::Record<'_>) {
+            CAPTURED_LINES.with(|lines| lines.borrow_mut().push(format!("{}", record.args())));
+        }
+
+        fn flush(&self) {}
+    }
+
+    static CAPTURING_LOGGER: CapturingLogger = CapturingLogger;
+    static INIT_CAPTURING_LOGGER: Once = Once::new();
+
+    // Install the capturing logger exactly once for the whole test binary, raise the max level so
+    // records are not filtered out, and clear this thread's captured lines to give the calling test
+    // a clean slate.
+    fn install_capturing_logger() {
+        INIT_CAPTURING_LOGGER.call_once(|| {
+            // `set_logger` only fails if a logger is already installed; the lib test binary installs
+            // none of its own, so this succeeds. Ignore the error defensively.
+            let _ = log::set_logger(&CAPTURING_LOGGER);
+            log::set_max_level(log::LevelFilter::Trace);
+        });
+        CAPTURED_LINES.with(|lines| lines.borrow_mut().clear());
+    }
+
+    fn captured_lines() -> Vec<String> {
+        CAPTURED_LINES.with(|lines| lines.borrow().clone())
+    }
 
     fn assert_unpin<T: Unpin>() {}
 
@@ -275,6 +381,69 @@ mod tests {
         assert_logger::<Box<MemoryStorageLogger>>();
         assert_logger::<Box<ChannelLogger>>();
         assert_logger::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_console_logger_prefix_default_none() {
+        assert_eq!(ConsoleLogger::new_unchecked("debug").prefix(), None);
+        assert_eq!(ConsoleLogger::new("info").unwrap().prefix(), None);
+    }
+
+    #[test]
+    fn test_console_logger_with_prefix() {
+        // Static string literal.
+        let logger = ConsoleLogger::new_unchecked("debug").with_prefix("[conn 5] ");
+        assert_eq!(logger.prefix(), Some("[conn 5] "));
+
+        // Owned runtime string (the typical case for a per-connection identifier).
+        let id = 42;
+        let logger = ConsoleLogger::new_unchecked("debug").with_prefix(format!("[conn {id}] "));
+        assert_eq!(logger.prefix(), Some("[conn 42] "));
+    }
+
+    #[test]
+    fn test_console_logger_set_and_clear_prefix() {
+        let mut logger = ConsoleLogger::new_unchecked("debug");
+        assert_eq!(logger.prefix(), None);
+
+        logger.set_prefix(String::from("[server] "));
+        assert_eq!(logger.prefix(), Some("[server] "));
+
+        logger.set_prefix("[client] ");
+        assert_eq!(logger.prefix(), Some("[client] "));
+
+        logger.clear_prefix();
+        assert_eq!(logger.prefix(), None);
+    }
+
+    #[test]
+    fn test_console_logger_logs_prefix_before_kind() {
+        install_capturing_logger();
+
+        let mut logger = ConsoleLogger::new_unchecked("debug");
+
+        // Without a prefix, the emitted line matches the historical `"{kind} {message}"` format.
+        logger.log(Record::new(RecordKind::Write, String::from("ab:cd")));
+
+        // With a prefix, it is prepended verbatim, before the record kind character.
+        logger.set_prefix("[conn 5] ");
+        logger.log(Record::new(RecordKind::Read, String::from("01:02")));
+
+        // After clearing, subsequent lines are emitted without any prefix again.
+        logger.clear_prefix();
+        logger.log(Record::new(
+            RecordKind::Shutdown,
+            String::from("Writer shutdown request."),
+        ));
+
+        assert_eq!(
+            captured_lines(),
+            vec![
+                String::from("> ab:cd"),
+                String::from("[conn 5] < 01:02"),
+                String::from("- Writer shutdown request."),
+            ]
+        );
     }
 
     fn assert_send<T: Send>() {}
