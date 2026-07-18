@@ -316,6 +316,7 @@ impl<
     ) -> Poll<Result<usize, io::Error>> {
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_write(cx, buf);
+
         match &result {
             Poll::Ready(Ok(length)) => {
                 let record = Record::new(
@@ -332,6 +333,7 @@ impl<
             }
             Poll::Pending => {}
         }
+
         result
     }
 
@@ -342,10 +344,12 @@ impl<
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_shutdown(cx);
+
         mut_self.emit(Record::new(
             RecordKind::Shutdown,
             String::from("Writer shutdown request."),
         ));
+
         result
     }
 }
