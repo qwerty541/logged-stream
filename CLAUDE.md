@@ -96,20 +96,24 @@ tests, docs, and the changelog.
   per line, no brace-grouped imports** — and `use_field_init_shorthand = true`. Match
   the surrounding files exactly; `cargo fmt` enforces this.
 - **Docs are duplicated on purpose:** the crate-level overview appears in both
-  [lib.rs](src/lib.rs) and on the `LoggedStream` type in [stream.rs](src/stream.rs).
-  If you change the list of formatters/filters/loggers or the four-part description,
-  update **both** (and the README).
+  [lib.rs](src/lib.rs) and on the `LoggedStream` type in [stream.rs](src/stream.rs), and is
+  mirrored in prose in [README.md](README.md). All three share the same shape — an *Architecture*
+  overview plus *Provided implementations* tables of formatters/filters/loggers. If you change the
+  list of implementations or the four-part description, update **all three** and keep that
+  structure in sync.
 
 ### Behavioral gotchas
 
-- **`RecordKind::Open` is defined but never emitted** by `LoggedStream`. Reads emit
-  `Read`, writes `Write`, `poll_shutdown` emits `Shutdown`, `Drop` emits `Drop`
-  (`"Deallocated."`), and IO errors emit `Error`. Don't assume `Open` fires.
+- **`RecordKind::Open` is never emitted automatically.** The read/write/shutdown/drop machinery
+  only produces `Read`, `Write`, `Shutdown`, `Drop` (`"Deallocated."`) and `Error`. `Open` is
+  emitted solely when the user calls `LoggedStream::log_open(message)` to record a manual marker
+  (e.g. connection start); it passes through the filter like any other record.
 - **Errors are partly swallowed:** sync `read` ignores `WouldBlock`; sync `write`
   ignores `WriteZero | WouldBlock`; async paths treat `Poll::Pending` / zero-length
   reads as non-events. Only "real" errors produce an `Error` record.
-- **Filter runs on every record kind**, including `Drop` and `Shutdown` — a
-  `RecordKindFilter` that omits those kinds will suppress their log lines.
+- **Filter runs on every record kind**, including `Error`, `Shutdown` and `Drop` — a
+  `RecordKindFilter` that omits a kind will suppress its log lines. Every record is routed
+  through the private `LoggedStream::emit` helper, so the filter is applied uniformly.
 
 ## Common commands
 

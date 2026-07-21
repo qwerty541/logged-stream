@@ -1,5 +1,7 @@
 # logged-stream <!-- omit in toc -->
 
+_Transparent logging wrapper for any synchronous or asynchronous Rust IO stream — inspect every byte, error, and lifecycle event that passes through._
+
 [![Crates.io version][crates-version-badge]][crates-url]
 [![Crates.io downloads][crates-downloads-badge]][crates-url]
 [![Released API docs][docs-badge]][docs-url]
@@ -31,73 +33,119 @@
 <summary>Table of contents</summary>
 
 - [Description](#description)
-  - [Structure](#structure)
-  - [Use Cases](#use-cases)
 - [Usage](#usage)
+- [Quick start](#quick-start)
 - [Example](#example)
+- [Record kinds](#record-kinds)
+- [Architecture](#architecture)
+- [Provided implementations](#provided-implementations)
+  - [Formatters (`BufferFormatter`)](#formatters-bufferformatter)
+  - [Filters (`RecordFilter`)](#filters-recordfilter)
+  - [Loggers (`Logger`)](#loggers-logger)
+- [Use cases](#use-cases)
 - [License](#license)
 - [Contribution](#contribution)
 </details>
 
 ## Description
 
-### Structure
+`logged-stream` provides a single wrapper type, `LoggedStream`, that wraps any underlying IO object and logs every read, write, error, shutdown and drop that passes through it — without changing the code on either side. Because it re-implements the same IO trait it wraps, it drops straight into existing synchronous or asynchronous code.
 
-`logged-stream` is a Rust library that provides a `LoggedStream` structure which can be used as a wrapper for underlying IO object which implements `std::io::Write` and `std::io::Read` traits or their asynchronous analogues from `tokio` library to enable logging of all read and write operations, errors and drop.
+-   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
+-   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
+-   **Composable.** Choose how bytes are formatted, which records are kept, and where they go — or plug in your own.
+-   **Small and safe.** A small dependency set and no `unsafe` code.
 
-`LoggedStream` structure constructs from four parts:
-
--   Underlying IO object, which must implement `std::io::Write` and `std::io::Read` traits or their asynchronous analogues from `tokio` library: `tokio::io::AsyncRead` and `tokio::io::AsyncWrite`.
--   Buffer formatting part, which must implement `BufferFormatter` trait provided by this library. This part of `LoggedStream` is responsible for the form you will see the input and output bytes. Currently this library provides the following implementations of `BufferFormatter` trait: `LowercaseHexadecimalFormatter`, `UppercaseHexadecimalFormatter`, `DecimalFormatter`, `BinaryFormatter` and `OctalFormatter`. Also `BufferFormatter` is public trait so you are free to construct your own implementation.
--   Filtering part, which must implement `RecordFilter` trait provided by this library. This part of `LoggedStream` is responsible for log records filtering. Currently this library provides the following implementations of `RecordFilter` trait: `DefaultFilter` which accepts all log records, `RecordKindFilter` which accepts logs with kinds specified during construct, `AllFilter` which combines multiple filters with AND logic (accepts record only if all underlying filters accept it), and `AnyFilter` which combines multiple filters with OR logic (accepts record if any underlying filter accepts it). Also `RecordFilter` is public trait and you are free to construct your own implementation.
--   Logging part, which must implement `Logger` trait provided by this library. This part of `LoggedStream` is responsible for further work with constructed, formatter and filtered log record. For example, it can be outputted to console, written to the file, written to database, written to the memory for further use or sended by the channel. Currently this library provides the following implementations of `Logger` trait: `ConsoleLogger`, `MemoryStorageLogger`, `ChannelLogger` and `FileLogger`. Also `Logger` is public trait and you are free to construct your own implementation.
-
-### Use Cases
-
-- Network Traffic Monitoring:
-   - Monitor and log all incoming and outgoing network traffic in a server or client application.
-   - Useful for debugging network protocols, tracking data exchange, and ensuring security compliance.
-- Debugging I/O Operations:
-   - Log all read and write operations to diagnose issues with file or network I/O.
-   - Helps in identifying bottlenecks, data corruption, and unexpected behavior in I/O operations.
-- Performance Analysis:
-   - Analyze the performance of I/O operations by logging the time taken for each read/write operation.
-   - Helps in identifying performance issues and optimizing I/O-intensive applications.
-- Database Activity Logging:
-  - Log all interactions with a database, including queries, updates, and transaction details.
-  - Helps in database performance tuning, debugging query issues, and maintaining audit logs.
-- Proxy Servers:
-  - Implement logging in proxy servers to monitor and log all forwarded traffic.
-  - Useful for debugging proxy behavior and ensuring proper data routing.
+Each logged event flows through four pluggable parts — `event -> Formatter -> Filter -> Logger` — described under [Architecture](#architecture).
 
 ## Usage
 
-To use `logged-stream`, add the following line to your `Cargo.toml`:
+Add `logged-stream` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-logged-stream = "0.6"
+logged-stream = "0.7"
 ```
 
-or run the following Cargo command in your project directory:
+or run:
 
+```console
+$ cargo add logged-stream@0.7
 ```
-$ cargo add logged-stream@0.6
+
+It requires **Rust 1.85.1 or newer** (Rust 2024 edition).
+
+## Quick start
+
+`LoggedStream::new` takes the stream to wrap plus the three pluggable parts — a formatter, a filter, and a logger. The snippet below wraps an in-memory [`Cursor`][cursor] (standing in for a socket or file, so it runs with no external setup), renders bytes as lowercase hexadecimal, keeps every record with `DefaultFilter`, and prints them through `ConsoleLogger`:
+
+```rust
+use log::LevelFilter;
+use logged_stream::ConsoleLogger;
+use logged_stream::DefaultFilter;
+use logged_stream::LoggedStream;
+use logged_stream::LowercaseHexadecimalFormatter;
+use std::io::Cursor;
+use std::io::Read;
+
+fn main() {
+    // ConsoleLogger forwards records to the `log` facade; env_logger prints them.
+    env_logger::builder()
+        .filter_level(LevelFilter::Debug)
+        .format_timestamp_millis()
+        .init();
+
+    let mut stream = LoggedStream::new(
+        Cursor::new(vec![0xde, 0xad, 0xbe, 0xef]),
+        LowercaseHexadecimalFormatter::new_default(),
+        DefaultFilter,
+        ConsoleLogger::new_unchecked("debug"),
+    );
+
+    let mut buf = [0u8; 4];
+    stream.read_exact(&mut buf).unwrap();
+}
 ```
+
+Running it logs the read, then the drop when `stream` goes out of scope:
+
+```log
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] < de:ad:be:ef
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] x Deallocated.
+```
+
+> To see any output you also need `env_logger` and `log` in your `Cargo.toml`: `ConsoleLogger` only forwards records to the [`log`][log] facade, and any backend works.
+
+See [Provided implementations](#provided-implementations) for the full set of formatters, filters and loggers you can swap in.
+
+[cursor]: https://doc.rust-lang.org/std/io/struct.Cursor.html
+[log]: https://crates.io/crates/log
 
 ## Example
 
-This is a simple usage example of `LoggedStream` structure with `std::net::TcpStream` as underling IO object which connects to some echo-server, lowercase hexadecimal formatter, default filter and console logger.
+A more realistic case: wrapping a `std::net::TcpStream` connected to an echo server. Each `write_all` logs a `>` record and each `read_exact` logs a `<` record, so both directions of the exchange are visible.
 
 ```rust
-fn main() {
-    env::set_var("RUST_LOG", "debug");
-    env_logger::init();
+use log::LevelFilter;
+use logged_stream::ConsoleLogger;
+use logged_stream::DefaultFilter;
+use logged_stream::LoggedStream;
+use logged_stream::LowercaseHexadecimalFormatter;
+use std::io::Read;
+use std::io::Write;
+use std::net::TcpStream;
 
+fn main() {
+    env_logger::builder()
+        .filter_level(LevelFilter::Debug)
+        .format_timestamp_millis()
+        .init();
+
+    // Assumes an echo server is listening on 127.0.0.1:8080 (the full example starts one).
     let mut client = LoggedStream::new(
-        net::TcpStream::connect("127.0.0.1:8080").unwrap(),
-        LowercaseHexadecimalFormatter::new(None),
-        DefaultFilter::default(),
+        TcpStream::connect("127.0.0.1:8080").unwrap(),
+        LowercaseHexadecimalFormatter::new_default(),
+        DefaultFilter,
         ConsoleLogger::new_unchecked("debug"),
     );
 
@@ -110,36 +158,103 @@ fn main() {
     client.write_all(&send).unwrap();
     let mut response = [0u8; 4];
     client.read_exact(&mut response).unwrap();
-
-    let send = [0x09, 0x0a, 0x0b, 0x0c];
-    client.write_all(&send).unwrap();
-    let mut response = [0u8; 4];
-    client.read_exact(&mut response).unwrap();
-
-    let send = [0x01, 0x02, 0x03, 0x04];
-    client.write_all(&send).unwrap();
-    let mut response = [0u8; 4];
-    client.read_exact(&mut response).unwrap();
 }
 ```
 
 Output to console:
 
 ```log
-[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 01:02:03:04
-[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] < 01:02:03:04
-[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 05:06:07:08
-[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] < 05:06:07:08
-[2023-04-18T08:18:45.895Z DEBUG logged_stream::logger] > 09:0a:0b:0c
-[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] < 09:0a:0b:0c
-[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] > 01:02:03:04
-[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] < 01:02:03:04
-[2023-04-18T08:18:45.896Z DEBUG logged_stream::logger] x Deallocated.
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] > 01:02:03:04
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] < 01:02:03:04
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] > 05:06:07:08
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] < 05:06:07:08
+[2026-01-01T12:00:00.000Z DEBUG logged_stream::logger] x Deallocated.
 ```
 
-Full version of this example can be found [there](./examples/tcp-stream-console-logger.rs).
+The snippets above are condensed. Full runnable versions live in the [`examples/`](./examples) directory:
 
-Same example, but rewritten using asynchronous API, can be found [there](./examples/tokio-tcp-stream-console-logger.rs).
+-   [`tcp-stream-console-logger.rs`](./examples/tcp-stream-console-logger.rs) — the synchronous example above, together with the echo server.
+-   [`tokio-tcp-stream-console-logger.rs`](./examples/tokio-tcp-stream-console-logger.rs) — the same over `tokio`'s asynchronous API.
+-   [`file-logger.rs`](./examples/file-logger.rs) — writing records to a file instead of the console.
+-   [`composite-filters.rs`](./examples/composite-filters.rs) — combining filters with `AllFilter` / `AnyFilter`.
+
+Full API documentation is on [docs.rs](https://docs.rs/logged-stream).
+
+## Record kinds
+
+Every log line begins with a single character identifying the kind of event:
+
+| Char | Kind | Emitted when |
+| --- | --- | --- |
+| `<` | Read | bytes were read from the wrapped stream |
+| `>` | Write | bytes were written to the wrapped stream |
+| `!` | Error | a real IO error occurred (transient `WouldBlock` / `WriteZero` are skipped) |
+| `-` | Shutdown | an asynchronous stream was shut down (`poll_shutdown`) |
+| `x` | Drop | the wrapper was dropped (message `Deallocated.`) |
+| `+` | Open | a manual marker you emit yourself with `log_open` (e.g. connection start); never produced automatically |
+
+Every kind except `Open` is produced automatically. `Open` is a marker you record yourself with `LoggedStream::log_open` — for example `stream.log_open(format!("Established connection with {peer}"))` right after a connection is established. Like any record, it passes through the filter, so a `RecordKindFilter` that omits `Open` will suppress it.
+
+## Architecture
+
+`LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable parts. Each logged event flows through them in order:
+
+```text
+event  ->  Formatter  ->  Filter  ->  Logger
+```
+
+-   **The inner IO object (`S`).** The stream you are wrapping. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
+-   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
+-   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`.
+-   **Logger (`Logger`).** The sink that consumes accepted records.
+
+All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object.
+
+## Provided implementations
+
+### Formatters (`BufferFormatter`)
+
+Control how byte buffers are rendered. Each formatter stores a separator (default `:`) and exposes parallel constructors: `new`, `new_static`, `new_owned` and `new_default`.
+
+| Formatter | Renders each byte as |
+| --- | --- |
+| `LowercaseHexadecimalFormatter` | lowercase hexadecimal — `0a:ff` |
+| `UppercaseHexadecimalFormatter` | uppercase hexadecimal — `0A:FF` |
+| `DecimalFormatter` | decimal — `10:255` |
+| `OctalFormatter` | octal — `012:377` |
+| `BinaryFormatter` | binary — `00001010:11111111` |
+
+### Filters (`RecordFilter`)
+
+Decide which records reach the logger.
+
+| Filter | Behavior |
+| --- | --- |
+| `DefaultFilter` | Accepts every record. |
+| `RecordKindFilter` | Accepts only the record kinds in an allow-list given at construction. |
+| `AllFilter` | AND — a record passes only if every child filter accepts it (an empty list accepts everything). |
+| `AnyFilter` | OR — a record passes if any child filter accepts it (an empty list rejects everything). |
+
+### Loggers (`Logger`)
+
+Consume each accepted record.
+
+| Logger | Destination |
+| --- | --- |
+| `ConsoleLogger` | Emits records through the `log` facade. |
+| `FileLogger` | Writes records to a file. |
+| `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
+| `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
+
+## Use cases
+
+`LoggedStream` hands you a formatted, filterable, timestamped record of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
+
+-   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to record every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
+-   **I/O debugging** — see the exact bytes moving through a file, socket, or any custom stream, alongside the errors, shutdowns, and drops around them, to pin down data corruption or where a connection unexpectedly closed.
+-   **Protocol and application-traffic capture** — log the raw wire traffic of a protocol you are implementing or reverse-engineering, such as a database driver, an RPC channel, or a custom binary format. `LoggedStream` captures the bytes; decode or parse them downstream if you need higher-level detail like SQL statements.
+-   **Timing and throughput diagnostics** — every record is timestamped, so you can layer your own cadence, gap, and throughput analysis on top: when reads and writes happened and how much data moved. (The timestamps are yours to correlate — the library does not measure per-call latency itself.)
+-   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while recording it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
 
 ## License
 

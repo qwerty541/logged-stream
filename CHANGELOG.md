@@ -5,14 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v0.7.0 (20.07.2026)
 
 ### Added
 
 - Added an optional line prefix to `ConsoleLogger`, configurable via the new `with_prefix`, `set_prefix`, `clear_prefix` and `prefix` methods. When set, the prefix is printed at the beginning of every log line, which helps disambiguate output when several `LoggedStream`s (for example one per connection) log to the same console. No prefix is configured by default, so existing usage is unaffected.
+- Added `LoggedStream::log_open`, which emits a custom `Open` record (the `+` marker) carrying a caller-supplied message — for example to mark the start of a connection (`"Established connection with 127.0.0.1:8080"`). The record passes through the filter like any other; `RecordKind::Open` is otherwise never emitted automatically.
+
+### Fixed
+
+- `Error` records are now passed through the configured filter like every other record kind. Previously read and write errors were logged unconditionally, so a filter that excluded `RecordKind::Error` (for example a `RecordKindFilter` without it) would still emit them. `DefaultFilter` accepts all records, so default behavior is unchanged.
 
 ### Documentation
 
+- Restructured the crate description in the README and the mirrored crate-level and `LoggedStream` rustdoc: split the four-part overview into an *Architecture* section and a table-based *Provided implementations* section for easier scanning.
+- Documented that wrapping a `BufferFormatter` in `Arc<T>` requires `T: Sync` (unlike `Box<...>`): the concrete formatters satisfy this, but an erased trait object must be written as `Arc<dyn BufferFormatter + Sync>`.
+- Rewrote the README *Use Cases* section: reframed the examples around what you can build with the library and corrected wording that implied built-in features the crate does not provide (per-operation latency measurement, parsed database queries).
+- Reworked the README for a get-running-first flow: added a tagline and highlights, a runnable in-memory *Quick start*, a *Record kinds* output legend, and links to the examples and docs, then moved the architecture and implementation reference below the examples.
+- Fixed the README console example so it compiles on the Rust 2024 edition — it now initializes logging via `env_logger::builder()` rather than the now-`unsafe` `env::set_var`, and uses the current API (`LowercaseHexadecimalFormatter::new_default()` and the unit `DefaultFilter`).
 - Created CLAUDE.md with codebase guidance for AI-assisted development.
 
 ### Dependencies

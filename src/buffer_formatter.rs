@@ -11,6 +11,15 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// This trait allows to format bytes buffer using [`format_buffer`] method. It should be implemented for
 /// structures which are going to be used as formatting part inside [`LoggedStream`].
 ///
+/// # Wrapping in an `Arc`
+///
+/// `BufferFormatter` is implemented for `Box<dyn BufferFormatter>` unconditionally, but the blanket
+/// impl for `Arc<T>` additionally requires `T: Sync` — because `BufferFormatter` requires `Send`,
+/// and `Arc<T>` is `Send` only when `T: Send + Sync`. The concrete formatters in this crate are
+/// `Sync`, so `Arc<LowercaseHexadecimalFormatter>` and friends work directly. For an erased trait
+/// object you must spell the bound out as `Arc<dyn BufferFormatter + Sync>`; a plain
+/// `Arc<dyn BufferFormatter>` does **not** implement `BufferFormatter`.
+///
 /// [`format_buffer`]: BufferFormatter::format_buffer
 /// [`LoggedStream`]: crate::LoggedStream
 pub trait BufferFormatter: Send + 'static {
