@@ -1,6 +1,6 @@
 [package]
 name = "logged-stream"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 authors = ["Alexandr Garbuzov <qwerty541zxc@gmail.com>"]
 description = "Logging of all read/write operations, errors and drop of underlying IO object."

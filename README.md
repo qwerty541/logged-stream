@@ -64,13 +64,13 @@ Add `logged-stream` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-logged-stream = "0.6"
+logged-stream = "0.7"
 ```
 
 or run:
 
 ```console
-$ cargo add logged-stream@0.6
+$ cargo add logged-stream@0.7
 ```
 
 It requires **Rust 1.85.1 or newer** (Rust 2024 edition).
