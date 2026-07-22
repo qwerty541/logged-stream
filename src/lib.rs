@@ -9,8 +9,10 @@
 //! [`LoggedStream`] is generic over four independent, pluggable parts. Each logged event flows
 //! through them in order: `event -> Formatter -> Filter -> Logger`.
 //!
-//! -   **The inner IO object (`S`).** The stream you are wrapping. [`LoggedStream`] implements the
-//!     same IO trait `S` does, so it slots in wherever `S` was used.
+//! -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing [`Read`] /
+//!     [`Write`] (or the [`tokio`] async equivalents) works — a socket, a file, an in-memory buffer,
+//!     or your own type. [`LoggedStream`] implements the same IO trait `S` does, so it slots in
+//!     wherever `S` was used.
 //! -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 //!     strings you see in the log.
 //! -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
@@ -57,6 +59,11 @@
 //! | [`FileLogger`] | Writes records to a file. |
 //! | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
 //! | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
+//!
+//! None of these are special: each is an ordinary implementation of a public trait, with no
+//! privileged access to [`LoggedStream`]. If none fits your use case, implement
+//! [`BufferFormatter`], [`RecordFilter`] or [`Logger`] yourself and pass your type in exactly like
+//! a built-in.
 //!
 //! [`Write`]: std::io::Write
 //! [`Read`]: std::io::Read
