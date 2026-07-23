@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Documentation
+
+- Documented how to extend `LoggedStream` with custom parts: added a *Custom implementations* section to the README (with a trait / required-methods table and a worked `BufferFormatter` example) and clarified across the README and the mirrored rustdoc that every part — the wrapped IO object, formatter, filter and logger — can be replaced with your own implementation when no provided one fits.
+
 ## v0.7.0 (20.07.2026)
 
 ### Added
