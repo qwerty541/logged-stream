@@ -42,6 +42,7 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
   - [Formatters (`BufferFormatter`)](#formatters-bufferformatter)
   - [Filters (`RecordFilter`)](#filters-recordfilter)
   - [Loggers (`Logger`)](#loggers-logger)
+- [Custom implementations](#custom-implementations)
 - [Use cases](#use-cases)
 - [License](#license)
 - [Contribution](#contribution)
@@ -53,10 +54,10 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 
 -   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
 -   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
--   **Composable.** Choose how bytes are formatted, which records are kept, and where they go — or plug in your own.
+-   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in, or implement the trait yourself if none fits your needs.
 -   **Small and safe.** A small dependency set and no `unsafe` code.
 
-Each logged event flows through four pluggable parts — `event -> Formatter -> Filter -> Logger` — described under [Architecture](#architecture).
+`LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
 
 ## Usage
 
@@ -203,12 +204,12 @@ Every kind except `Open` is produced automatically. `Open` is a marker you recor
 event  ->  Formatter  ->  Filter  ->  Logger
 ```
 
--   **The inner IO object (`S`).** The stream you are wrapping. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
+-   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
 -   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`.
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
-All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object.
+All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
 
 ## Provided implementations
 
@@ -245,6 +246,44 @@ Consume each accepted record.
 | `FileLogger` | Writes records to a file. |
 | `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
 | `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
+
+If none of the provided implementations matches your requirements, you can implement the corresponding trait yourself and pass your type to `LoggedStream` exactly like a built-in.
+
+## Custom implementations
+
+`LoggedStream` is deliberately a skeleton: three of its four parts are defined by public traits, and everything this crate ships is an ordinary implementation of one of them.
+
+| Part | Trait | You must implement | Provided for you |
+| --- | --- | --- | --- |
+| Formatter | `BufferFormatter` | `get_separator`, `format_byte` | `format_buffer` — joins formatted bytes with your separator |
+| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter` |
+| Logger | `Logger` | `log` | — |
+
+All three are `Send + 'static` and object-safe, so you can box them (`Box<dyn BufferFormatter>`) and choose an implementation at runtime. The fourth part needs no trait from this crate at all — anything implementing `std::io::Read`/`Write` or the `tokio` async equivalents can be wrapped, including your own types.
+
+For example, a formatter that renders printable bytes as ASCII — handy for text protocols, which the built-in numeric formatters do not cover:
+
+```rust
+use logged_stream::BufferFormatter;
+
+struct AsciiFormatter;
+
+impl BufferFormatter for AsciiFormatter {
+    fn get_separator(&self) -> &str {
+        ""
+    }
+
+    fn format_byte(&self, byte: &u8) -> String {
+        if byte.is_ascii_graphic() || *byte == b' ' {
+            (*byte as char).to_string()
+        } else {
+            String::from(".")
+        }
+    }
+}
+```
+
+Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` and a `time`, so a custom logger can route by record kind, re-timestamp, or forward to any sink you like.
 
 ## Use cases
 
