@@ -60,10 +60,9 @@
 //! | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
 //! | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
 //!
-//! None of these are special: each is an ordinary implementation of a public trait, with no
-//! privileged access to [`LoggedStream`]. If none fits your use case, implement
-//! [`BufferFormatter`], [`RecordFilter`] or [`Logger`] yourself and pass your type in exactly like
-//! a built-in.
+//! If none of the provided implementations matches your requirements, you can implement
+//! [`BufferFormatter`], [`RecordFilter`] or [`Logger`] yourself and pass your type to
+//! [`LoggedStream`] exactly like a built-in.
 //!
 //! [`Write`]: std::io::Write
 //! [`Read`]: std::io::Read
