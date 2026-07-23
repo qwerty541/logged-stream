@@ -54,7 +54,7 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 
 -   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
 -   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
--   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in or implement your own; the built-ins get no special treatment.
+-   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in, or implement the trait yourself if none fits your needs.
 -   **Small and safe.** A small dependency set and no `unsafe` code.
 
 `LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
@@ -247,7 +247,7 @@ Consume each accepted record.
 | `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
 | `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
 
-None of these are special: each is just an implementation of a public trait, and the built-ins get no privileged access to `LoggedStream`. If none fits your use case, implement the corresponding trait yourself and pass it in exactly like a built-in.
+If none of the provided implementations matches your requirements, you can implement the corresponding trait yourself and pass your type to `LoggedStream` exactly like a built-in.
 
 ## Custom implementations
 
