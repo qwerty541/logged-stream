@@ -100,7 +100,9 @@ tests, docs, and the changelog.
   mirrored in prose in [README.md](README.md). All three share the same shape — an *Architecture*
   overview plus *Provided implementations* tables of formatters/filters/loggers. If you change the
   list of implementations or the four-part description, update **all three** and keep that
-  structure in sync.
+  structure in sync. The README additionally carries a *Custom implementations* section (with a
+  worked code example) that is intentionally **README-only**; only its short "implement your own
+  trait" closing note is mirrored into the rustdoc — do not try to sync the whole section.
 
 ### Behavioral gotchas
 
