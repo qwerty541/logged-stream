@@ -306,11 +306,11 @@ mod tests {
     use std::cell::RefCell;
     use std::sync::Once;
 
-    // A minimal `log::Log` implementation used to capture the exact lines `ConsoleLogger` emits
-    // through the `log` facade. Captured lines are stored per-thread, so tests running in parallel
-    // never observe each other's output.
+    // A minimal `log::Log` implementation used to capture the exact level and line `ConsoleLogger`
+    // emits through the `log` facade. Captured records are stored per-thread, so tests running in
+    // parallel never observe each other's output.
     thread_local! {
-        static CAPTURED_LINES: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+        static CAPTURED: RefCell<Vec<(log::Level, String)>> = const { RefCell::new(Vec::new()) };
     }
 
     struct CapturingLogger;
@@ -321,7 +321,11 @@ mod tests {
         }
 
         fn log(&self, record: &log::Record<'_>) {
-            CAPTURED_LINES.with(|lines| lines.borrow_mut().push(format!("{}", record.args())));
+            CAPTURED.with(|captured| {
+                captured
+                    .borrow_mut()
+                    .push((record.level(), format!("{}", record.args())))
+            });
         }
 
         fn flush(&self) {}
@@ -340,11 +344,21 @@ mod tests {
             let _ = log::set_logger(&CAPTURING_LOGGER);
             log::set_max_level(log::LevelFilter::Trace);
         });
-        CAPTURED_LINES.with(|lines| lines.borrow_mut().clear());
+        CAPTURED.with(|captured| captured.borrow_mut().clear());
     }
 
     fn captured_lines() -> Vec<String> {
-        CAPTURED_LINES.with(|lines| lines.borrow().clone())
+        CAPTURED.with(|captured| {
+            captured
+                .borrow()
+                .iter()
+                .map(|(_, msg)| msg.clone())
+                .collect()
+        })
+    }
+
+    fn captured_records() -> Vec<(log::Level, String)> {
+        CAPTURED.with(|captured| captured.borrow().clone())
     }
 
     fn assert_unpin<T: Unpin>() {}
@@ -444,6 +458,47 @@ mod tests {
                 String::from("- Writer shutdown request."),
             ]
         );
+    }
+
+    #[test]
+    fn test_console_logger_forces_error_level() {
+        install_capturing_logger();
+
+        // The logger is configured at Debug, below Error. Non-error records are emitted at the
+        // configured level, but Error records are always forced to `log::Level::Error`.
+        let mut logger = ConsoleLogger::new_unchecked("debug");
+        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
+        logger.log(Record::new(RecordKind::Error, String::from("boom")));
+
+        // A prefix does not change the forced Error level.
+        logger.set_prefix("[conn 5] ");
+        logger.log(Record::new(RecordKind::Error, String::from("kaboom")));
+
+        assert_eq!(
+            captured_records(),
+            vec![
+                (log::Level::Debug, String::from("> 01:02")),
+                (log::Level::Error, String::from("! boom")),
+                (log::Level::Error, String::from("[conn 5] ! kaboom")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_console_logger_empty_prefix_matches_no_prefix() {
+        install_capturing_logger();
+
+        let mut logger = ConsoleLogger::new_unchecked("debug");
+        // No prefix.
+        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
+        // Empty prefix — documented to produce the same output as no prefix at all.
+        logger.set_prefix("");
+        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
+
+        let lines = captured_lines();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], lines[1]);
+        assert_eq!(lines[0], "> 01:02");
     }
 
     fn assert_send<T: Send>() {}

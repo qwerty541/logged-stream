@@ -34,11 +34,20 @@ impl Record {
 /// how to work with log record message content which is different for each log record kind.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum RecordKind {
+    /// A manual marker emitted by the user via
+    /// [`LoggedStream::log_open`](crate::LoggedStream::log_open) — for example to record the start
+    /// of a connection. Never produced automatically.
     Open,
+    /// Bytes were read from the wrapped stream.
     Read,
+    /// Bytes were written to the wrapped stream.
     Write,
+    /// A real IO error occurred while reading or writing (transient `WouldBlock` / `WriteZero`
+    /// conditions are skipped).
     Error,
+    /// An asynchronous stream was shut down via `poll_shutdown`.
     Shutdown,
+    /// The stream wrapper was dropped.
     Drop,
 }
 
