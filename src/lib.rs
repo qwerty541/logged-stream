@@ -1,33 +1,62 @@
-//! This library provides a [`LoggedStream`] structure which can be used as a wrapper for
-//! underlying IO object which implements [`Write`] and [`Read`] traits or their
-//! asynchronous analogues from [`tokio`] library to enable logging of all read and write
-//! operations, errors and drop.
+//! `logged-stream` provides a single wrapper type, [`LoggedStream`], that wraps any underlying IO
+//! object and logs every read, write, error, shutdown and drop that passes through it. The wrapper
+//! re-implements the same IO trait it wraps — [`Read`] / [`Write`], or the [`tokio`] asynchronous
+//! analogues [`AsyncRead`] / [`AsyncWrite`] — so it is a drop-in replacement for the stream it
+//! decorates and works transparently in both synchronous and asynchronous code.
 //!
-//! [`LoggedStream`] structure constructs from four parts:
+//! # Architecture
 //!
-//! -   Underlying IO object, which must implement [`Write`] and [`Read`] traits or their
-//!     asynchronous analogues from [`tokio`] library: [`AsyncRead`] and [`AsyncWrite`].
-//! -   Buffer formatting part, which must implement [`BufferFormatter`] trait provided by
-//!     this library. This part of [`LoggedStream`] is responsible for the form you will see the
-//!     input and output bytes. Currently this library provides the following implementations of
-//!     [`BufferFormatter`] trait: [`UppercaseHexadecimalFormatter`], [`LowercaseHexadecimalFormatter`],
-//!     [`DecimalFormatter`], [`BinaryFormatter`] and [`OctalFormatter`]. Also [`BufferFormatter`] is
-//!     public trait so you are free to construct your own implementation.
-//! -   Filtering part, which must implement [`RecordFilter`] trait provided by this library.
-//!     This part of [`LoggedStream`] is responsible for log records filtering. Currently this
-//!     library provides the following implementations of [`RecordFilter`] trait: [`DefaultFilter`] which
-//!     accepts all log records, [`RecordKindFilter`] which accepts logs with kinds specified during
-//!     construct, [`AllFilter`] which combines multiple filters with AND logic (accepts record only if
-//!     all underlying filters accept it), and [`AnyFilter`] which combines multiple filters with OR logic
-//!     (accepts record if any underlying filter accepts it). Also [`RecordFilter`] is public trait and
-//!     you are free to construct your own implementation.
-//! -   Logging part, which must implement [`Logger`] trait provided by this library. This part
-//!     of [`LoggedStream`] is responsible for further work with constructed, formatter and filtered
-//!     log record. For example, it can be outputted to console, written to the file, written to database,
-//!     written to the memory for further use or sended by the channel. Currently this library provides
-//!     the following implementations of [`Logger`] trait: [`ConsoleLogger`], [`MemoryStorageLogger`],
-//!     [`ChannelLogger`] and [`FileLogger`]. Also [`Logger`] is public trait and you are free to construct
-//!     your own implementation.
+//! [`LoggedStream`] is generic over four independent, pluggable parts. Each logged event flows
+//! through them in order: `event -> Formatter -> Filter -> Logger`.
+//!
+//! -   **The inner IO object (`S`).** The stream you are wrapping. [`LoggedStream`] implements the
+//!     same IO trait `S` does, so it slots in wherever `S` was used.
+//! -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
+//!     strings you see in the log.
+//! -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
+//!     including shutdown and drop.
+//! -   **Logger ([`Logger`]).** The sink that consumes accepted records.
+//!
+//! All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
+//! and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for
+//! [`BufferFormatter`]). You are free to supply your own implementation of any part.
+//!
+//! # Provided implementations
+//!
+//! ## Formatters ([`BufferFormatter`])
+//!
+//! Control how byte buffers are rendered. Each formatter stores a separator (default `:`) and
+//! exposes parallel constructors: `new`, `new_static`, `new_owned` and `new_default`.
+//!
+//! | Formatter | Renders each byte as |
+//! | --- | --- |
+//! | [`LowercaseHexadecimalFormatter`] | lowercase hexadecimal — `0a:ff` |
+//! | [`UppercaseHexadecimalFormatter`] | uppercase hexadecimal — `0A:FF` |
+//! | [`DecimalFormatter`] | decimal — `10:255` |
+//! | [`OctalFormatter`] | octal — `012:377` |
+//! | [`BinaryFormatter`] | binary — `00001010:11111111` |
+//!
+//! ## Filters ([`RecordFilter`])
+//!
+//! Decide which records reach the logger.
+//!
+//! | Filter | Behavior |
+//! | --- | --- |
+//! | [`DefaultFilter`] | Accepts every record. |
+//! | [`RecordKindFilter`] | Accepts only the record kinds in an allow-list given at construction. |
+//! | [`AllFilter`] | AND — a record passes only if every child filter accepts it (an empty list accepts everything). |
+//! | [`AnyFilter`] | OR — a record passes if any child filter accepts it (an empty list rejects everything). |
+//!
+//! ## Loggers ([`Logger`])
+//!
+//! Consume each accepted record.
+//!
+//! | Logger | Destination |
+//! | --- | --- |
+//! | [`ConsoleLogger`] | Emits records through the `log` facade. |
+//! | [`FileLogger`] | Writes records to a file. |
+//! | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
+//! | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
 //!
 //! [`Write`]: std::io::Write
 //! [`Read`]: std::io::Read
