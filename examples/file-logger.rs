@@ -46,6 +46,10 @@ async fn main() {
         net::TcpStream::connect("127.0.0.1:8080").await.unwrap(),
         LowercaseHexadecimalFormatter::new_default(),
         DefaultFilter,
+        // A single logger owns this file, so truncating it on every run is fine. To let several
+        // loggers share one file — for example one per connection, each tagged with its own
+        // `with_prefix` — construct them with `FileLogger::open`, which opens the file in append
+        // mode so their lines cannot overwrite or interleave with each other.
         FileLogger::new(fs::File::create("./examples/traffic.log").unwrap()),
     );
 
