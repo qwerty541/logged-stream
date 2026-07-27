@@ -243,9 +243,18 @@ Consume each accepted record.
 | Logger | Destination |
 | --- | --- |
 | `ConsoleLogger` | Emits records through the `log` facade. |
-| `FileLogger` | Writes records to a file. |
+| `FileLogger` | Writes records to a file, one line per record. |
 | `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
 | `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
+
+`ConsoleLogger` and `FileLogger` additionally accept an optional prefix (`with_prefix` / `set_prefix`, none by default), written verbatim before the record kind character of every line. It tells apart several `LoggedStream`s — for example one per connection — that share a single console or file:
+
+```text
+[2026-07-20T12:34:56Z] [conn 5] > 01:02:03:04
+[2026-07-20T12:34:56Z] [conn 7] < 05:06:07:08
+```
+
+To let several `FileLogger`s write to one file, construct them with `FileLogger::open`, which opens the file in append mode. Each record is rendered up front and written with a single `write_all` call, so concurrent loggers never interleave parts of a line. Passing independently opened non-append files (for example from `File::create`) instead gives each logger its own starting offset, and they will silently overwrite each other's records.
 
 If none of the provided implementations matches your requirements, you can implement the corresponding trait yourself and pass your type to `LoggedStream` exactly like a built-in.
 
