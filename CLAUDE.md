@@ -53,9 +53,12 @@ parts. A record flows: **event → Formatter → Filter → Logger**.
 - **Filters:** `DefaultFilter` (accepts all), `RecordKindFilter` (allow-list of kinds),
   `AllFilter`/`AnyFilter` (combine `Box<dyn RecordFilter>`; empty `AllFilter` is `true`,
   empty `AnyFilter` is `false`).
-- **Loggers:** `ConsoleLogger` (via `log` facade; supports an optional per-instance line
-  prefix via `with_prefix`/`set_prefix`, `None` by default), `MemoryStorageLogger` (bounded
-  `VecDeque`), `ChannelLogger` (`mpsc`), `FileLogger` (writes to a file).
+- **Loggers:** `ConsoleLogger` (via `log` facade), `MemoryStorageLogger` (bounded
+  `VecDeque`), `ChannelLogger` (`mpsc`), `FileLogger` (writes to a file; `open` opens a
+  path in append mode). `ConsoleLogger` and `FileLogger` — the two that *render* records
+  into text — support an optional per-instance line prefix via `with_prefix`/`set_prefix`,
+  `None` by default; `MemoryStorageLogger`/`ChannelLogger` pass the `Record` struct through
+  untouched and deliberately have no prefix.
 
 ### Real-world usage (downstream reference)
 
@@ -116,6 +119,13 @@ tests, docs, and the changelog.
 - **Filter runs on every record kind**, including `Error`, `Shutdown` and `Drop` — a
   `RecordKindFilter` that omits a kind will suppress its log lines. Every record is routed
   through the private `LoggedStream::emit` helper, so the filter is applied uniformly.
+- **`FileLogger` must render each line in one `write_all`.** `std::fs::File` is unbuffered,
+  so formatting straight into it (e.g. `writeln!`) issues one write call per format piece and
+  lets concurrent loggers sharing a file splice their lines together. Keep the render-then-
+  write-once shape, and note it is the *opposite* trade-off from `ConsoleLogger`, which
+  formats directly into `log::log!` arguments because the logging backend buffers and locks.
+  Sharing one file additionally requires **append** mode (`FileLogger::open`, or a
+  `File::try_clone`); independently opened non-append handles silently overwrite each other.
 
 ## Common commands
 
