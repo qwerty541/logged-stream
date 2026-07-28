@@ -152,6 +152,7 @@ cargo doc --no-deps --all-features
 cargo run --example tcp-stream-console-logger
 cargo run --example tokio-tcp-stream-console-logger
 cargo run --example file-logger
+cargo run --example shared-file-logger
 cargo run --example composite-filters
 RUST_LOG=debug cargo run --example tcp-stream-console-logger   # control verbosity
 
