@@ -47,6 +47,10 @@ name = "file-logger"
 path = "examples/file-logger.rs"
 
 [[example]]
+name = "shared-file-logger"
+path = "examples/shared-file-logger.rs"
+
+[[example]]
 name = "composite-filters"
 path = "examples/composite-filters.rs"
 
