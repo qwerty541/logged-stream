@@ -435,28 +435,9 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::thread;
 
-    // Build a unique temporary file path for a test, so tests running in parallel never share a file.
-    // The loggers under test append, so any stale file from an earlier run is removed first.
-    fn temp_log_path(tag: &str) -> PathBuf {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "logged-stream-{}-{}-{}.log",
-            tag,
-            std::process::id(),
-            unique
-        ));
-        let _ = fs::remove_file(&path);
-        path
-    }
-
-    // Split a written line into its bracketed timestamp and everything after it.
-    fn split_timestamp(line: &str) -> (&str, &str) {
-        let close = line
-            .find("] ")
-            .expect("line should start with a bracketed timestamp");
-        (&line[1..close], &line[close + 2..])
-    }
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // ConsoleLogger
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // A minimal `log::Log` implementation used to capture the exact level and line `ConsoleLogger`
     // emits through the `log` facade. Captured records are stored per-thread, so tests running in
@@ -511,48 +492,6 @@ mod tests {
 
     fn captured_records() -> Vec<(log::Level, String)> {
         CAPTURED.with(|captured| captured.borrow().clone())
-    }
-
-    fn assert_unpin<T: Unpin>() {}
-
-    #[test]
-    fn test_unpin() {
-        assert_unpin::<ConsoleLogger>();
-        assert_unpin::<ChannelLogger>();
-        assert_unpin::<MemoryStorageLogger>();
-        assert_unpin::<FileLogger>();
-    }
-
-    #[test]
-    fn test_trait_object_safety() {
-        // Assert traint object construct.
-        let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
-        let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
-        let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
-        let path = temp_log_path("object-safety");
-        let mut file: Box<dyn Logger> = Box::new(FileLogger::open(&path).unwrap());
-
-        let record = Record::new(RecordKind::Open, String::from("test log record"));
-
-        // Assert that trait object methods are dispatchable.
-        console.log(record.clone());
-        memory.log(record.clone());
-        channel.log(record.clone());
-        file.log(record);
-
-        drop(file);
-        let _ = fs::remove_file(&path);
-    }
-
-    fn assert_logger<T: Logger>() {}
-
-    #[test]
-    fn test_box() {
-        assert_logger::<Box<dyn Logger>>();
-        assert_logger::<Box<ConsoleLogger>>();
-        assert_logger::<Box<MemoryStorageLogger>>();
-        assert_logger::<Box<ChannelLogger>>();
-        assert_logger::<Box<FileLogger>>();
     }
 
     #[test]
@@ -657,6 +596,33 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0], lines[1]);
         assert_eq!(lines[0], "> 01:02");
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // FileLogger
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Build a unique temporary file path for a test, so tests running in parallel never share a
+    // file. The loggers under test append, so any stale file from an earlier run is removed first.
+    fn temp_log_path(tag: &str) -> PathBuf {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "logged-stream-{}-{}-{}.log",
+            tag,
+            std::process::id(),
+            unique
+        ));
+        let _ = fs::remove_file(&path);
+        path
+    }
+
+    // Split a written line into its bracketed timestamp and everything after it.
+    fn split_timestamp(line: &str) -> (&str, &str) {
+        let close = line
+            .find("] ")
+            .expect("line should start with a bracketed timestamp");
+        (&line[1..close], &line[close + 2..])
     }
 
     #[test]
@@ -778,7 +744,23 @@ mod tests {
         let _ = fs::remove_file(&path);
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Trait assertions
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    fn assert_unpin<T: Unpin>() {}
+
     fn assert_send<T: Send>() {}
+
+    fn assert_logger<T: Logger>() {}
+
+    #[test]
+    fn test_unpin() {
+        assert_unpin::<ConsoleLogger>();
+        assert_unpin::<ChannelLogger>();
+        assert_unpin::<MemoryStorageLogger>();
+        assert_unpin::<FileLogger>();
+    }
 
     #[test]
     fn test_send() {
@@ -792,5 +774,35 @@ mod tests {
         assert_send::<Box<MemoryStorageLogger>>();
         assert_send::<Box<ChannelLogger>>();
         assert_send::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_box() {
+        assert_logger::<Box<dyn Logger>>();
+        assert_logger::<Box<ConsoleLogger>>();
+        assert_logger::<Box<MemoryStorageLogger>>();
+        assert_logger::<Box<ChannelLogger>>();
+        assert_logger::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_trait_object_safety() {
+        // Assert traint object construct.
+        let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
+        let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
+        let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
+        let path = temp_log_path("object-safety");
+        let mut file: Box<dyn Logger> = Box::new(FileLogger::open(&path).unwrap());
+
+        let record = Record::new(RecordKind::Open, String::from("test log record"));
+
+        // Assert that trait object methods are dispatchable.
+        console.log(record.clone());
+        memory.log(record.clone());
+        channel.log(record.clone());
+        file.log(record);
+
+        drop(file);
+        let _ = fs::remove_file(&path);
     }
 }
