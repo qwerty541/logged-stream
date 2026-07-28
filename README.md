@@ -177,6 +177,7 @@ The snippets above are condensed. Full runnable versions live in the [`examples/
 -   [`tcp-stream-console-logger.rs`](./examples/tcp-stream-console-logger.rs) — the synchronous example above, together with the echo server.
 -   [`tokio-tcp-stream-console-logger.rs`](./examples/tokio-tcp-stream-console-logger.rs) — the same over `tokio`'s asynchronous API.
 -   [`file-logger.rs`](./examples/file-logger.rs) — writing records to a file instead of the console.
+-   [`shared-file-logger.rs`](./examples/shared-file-logger.rs) — several concurrent connections logging into one shared file, each tagged with its own prefix, and why append mode is what makes that safe.
 -   [`composite-filters.rs`](./examples/composite-filters.rs) — combining filters with `AllFilter` / `AnyFilter`.
 
 Full API documentation is on [docs.rs](https://docs.rs/logged-stream).
