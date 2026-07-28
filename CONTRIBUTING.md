@@ -67,9 +67,12 @@ cargo build
 
 ```bash
 cargo test --lib --examples --benches
+cargo test --doc
 ```
 
-CI also builds all targets and runs tests for the library, examples, and benches across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
+Both commands are needed. Cargo skips doctests as soon as a target-selecting option such as `--lib` is passed, and the two cannot be merged — `cargo test --lib --doc` fails with `can't mix --doc with other target selecting options`.
+
+CI builds all targets and runs both commands across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
 
 ### Linting & Formatting
 
@@ -89,7 +92,7 @@ cargo doc --no-deps
 If you add or change public APIs, please:
 
 - Include rustdoc comments with examples where helpful
-- Ensure examples compile and run quickly
+- Ensure examples compile and run quickly — rustdoc examples are executed by `cargo test --doc`
 - Keep intra-doc links accurate (e.g., [`TypeName`], [`module::Item`])
 
 ### Examples
@@ -100,6 +103,8 @@ Run examples with Cargo:
 cargo run --example tcp-stream-console-logger
 cargo run --example tokio-tcp-stream-console-logger
 cargo run --example file-logger
+cargo run --example shared-file-logger
+cargo run --example composite-filters
 ```
 
 Some examples use `env_logger`. You can control verbosity via `RUST_LOG`, for example:
