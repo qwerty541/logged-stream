@@ -109,6 +109,11 @@ jobs:
       - name: Tests
         run: cargo test --lib --examples --benches
 
+      # `cargo test --lib --examples --benches` does not run doctests, so they need their own
+      # invocation to be covered by CI.
+      - name: Doctests
+        run: cargo test --doc
+
       - name: Benchmarks
         run: cargo bench
 
