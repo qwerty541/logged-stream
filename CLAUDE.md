@@ -106,6 +106,14 @@ tests, docs, and the changelog.
   structure in sync. The README additionally carries a *Custom implementations* section (with a
   worked code example) that is intentionally **README-only**; only its short "implement your own
   trait" closing note is mirrored into the rustdoc — do not try to sync the whole section.
+- **Command and example lists are duplicated too:** the runnable commands appear under *Common
+  commands* here **and** in the *Development Setup* sections of
+  [CONTRIBUTING.md](CONTRIBUTING.md); the list of examples appears in both of those, plus
+  [README.md](README.md), plus `[[example]]` entries in [Cargo.toml](Cargo.toml). These drift
+  silently, because the change that invalidates them usually lives outside `src/` — the
+  `composite-filters` example went unlisted in CONTRIBUTING.md for several releases. Update every
+  copy together. One divergence is **deliberate**: CONTRIBUTING.md omits `--all-features` from its
+  `clippy` line because the crate has no Cargo features (commit `8b2793a`) — do not "fix" it back.
 
 ### Behavioral gotchas
 
@@ -133,9 +141,11 @@ tests, docs, and the changelog.
 # Build (all targets: lib, examples, benches)
 cargo build --all-targets
 
-# Tests — CI runs this (lib unit tests + example/bench compile)
+# Tests (lib unit tests + example/bench compile) — CI runs this
 cargo test --lib --examples --benches
-# Doctests are NOT covered by the line above (a cargo quirk) — run them too:
+# Doctests are NOT covered by the line above (cargo skips them once a target-selecting
+# option is passed, and `--doc` cannot be mixed with those options), so they need their
+# own invocation — CI runs this as a separate step too
 cargo test --doc
 
 # Lint (must be clean; CI denies all warnings)
@@ -162,8 +172,8 @@ cargo bench --bench filter
 ```
 
 CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy, fmt, and
-build+test across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an MSRV
-check (`cargo msrv find`). Keep changes green on **stable** at minimum; avoid
+build+test+doctests across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an
+MSRV check (`cargo msrv find`). Keep changes green on **stable** at minimum; avoid
 nightly-only features. Avoid raising the MSRV without discussion — if it must change,
 update `rust-version` in [Cargo.toml](Cargo.toml), the badge in [README.md](README.md),
 and note it in the changelog.
@@ -184,6 +194,18 @@ which items are relevant, but do not skip an applicable one silently — call it
    - **[CONTRIBUTING.md](CONTRIBUTING.md)** when the dev workflow, tooling, or commands change.
    - Rustdoc comments on the touched public items (and the mirrored crate-level docs in
      [lib.rs](src/lib.rs) / [stream.rs](src/stream.rs)).
+
+   That list is organised per document, which makes it easy to answer "not applicable" three times
+   in a row for a change that in fact touches all three. Changes **outside `src/`** are missed most
+   often, because no document obviously belongs to them. So also work these triggers from the
+   change itself:
+   - Edited `.github/workflows/*.yml`, or changed any command CI runs → update *Common commands*
+     **and** the CI paragraph here, **and** *Testing* in [CONTRIBUTING.md](CONTRIBUTING.md).
+   - Added, renamed or removed an example → update the `[[example]]` entry in
+     [Cargo.toml](Cargo.toml) **and** the example lists in all three of CLAUDE.md,
+     [CONTRIBUTING.md](CONTRIBUTING.md) and [README.md](README.md).
+   - Changed a command a contributor runs locally → update the command blocks in CLAUDE.md **and**
+     [CONTRIBUTING.md](CONTRIBUTING.md), which duplicate each other.
 3. **Changelog updated for user-facing changes.** If the change affects users of the
    crate (public API, behavior, MSRV, dependencies, notable fixes), add an entry to
    [CHANGELOG.md](CHANGELOG.md) under an `## Unreleased` section (create it above the
