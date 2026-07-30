@@ -20,6 +20,7 @@
 //!
 //! Run with `cargo run --example shared-file-logger`; the resulting log is printed at the end.
 
+use log::LevelFilter;
 use logged_stream::DefaultFilter;
 use logged_stream::FileLogger;
 use logged_stream::LoggedStream;
@@ -81,6 +82,13 @@ async fn run_connection(id: u8) {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
+    env_logger::builder()
+        .parse_default_env()
+        .filter_level(LevelFilter::Debug)
+        .default_format()
+        .format_timestamp_millis()
+        .init();
+
     // The loggers append rather than truncate, so a file left over from a previous run would keep
     // accumulating. Start from a clean slate.
     let _ = fs::remove_file(LOG_PATH);
@@ -110,6 +118,12 @@ async fn main() {
 
     // Lines from different connections are interleaved in time, but each one is intact and carries
     // the prefix of the connection that produced it.
-    println!("--- {LOG_PATH} ---");
-    print!("{}", fs::read_to_string(LOG_PATH).unwrap());
+    let mut result = String::new();
+
+    result.push('\n');
+    result.push_str(&format!("--- {LOG_PATH} ---"));
+    result.push('\n');
+    result.push_str(&fs::read_to_string(LOG_PATH).unwrap());
+
+    log::debug!("{result}");
 }
