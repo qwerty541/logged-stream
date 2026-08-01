@@ -82,6 +82,8 @@ async fn main() {
 
     // Write the log file to stdout
     let mut result = String::new();
+
+    result.push_str("Log file contents:");
     result.push('\n');
     result.push_str(&format!("--- {LOG_PATH} ---"));
     result.push('\n');
