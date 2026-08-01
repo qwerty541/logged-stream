@@ -120,6 +120,7 @@ async fn main() {
     // the prefix of the connection that produced it.
     let mut result = String::new();
 
+    result.push_str("Log file contents:");
     result.push('\n');
     result.push_str(&format!("--- {LOG_PATH} ---"));
     result.push('\n');
