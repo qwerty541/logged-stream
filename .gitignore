@@ -1,1 +1,4 @@
 target
+
+# Log files written by the file-logger examples when they run.
+examples/*.log
