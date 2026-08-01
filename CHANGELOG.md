@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added an optional line prefix to `FileLogger`, configurable via the new `with_prefix`, `set_prefix`, `clear_prefix` and `prefix` methods, mirroring the `ConsoleLogger` prefix added in v0.7.0. When set, the prefix is written verbatim after the timestamp and immediately before the record kind character, which helps disambiguate output when several `LoggedStream`s (for example one per connection) write to the same file. No prefix is configured by default, so existing usage is unaffected.
+- Added `FileLogger::open`, which opens (creating it if needed) the file at the provided path in append mode. Append mode is what makes it safe for several `FileLogger`s to write to one file concurrently, so this is now the recommended constructor when a file is shared; `FileLogger::new` still accepts an already opened file.
+- Implemented `Debug` for `FileLogger`, which previously was the only provided logger without it and therefore could not be used with the `Debug` implementation of `LoggedStream`.
+
+### Fixed
+
+- `FileLogger` now renders each log record into a single buffer and writes it with one `write_all` call, instead of formatting directly into the file. Because `std::fs::File` is unbuffered, the previous implementation issued a separate write call per format piece, so several loggers appending to the same file spliced their lines into each other and produced unreadable output. This also reduces the number of write calls per record from seven to one. Output for a single logger is unchanged.
+
 ### Documentation
 
+- Added a `shared-file-logger` example showing several concurrent connections logging into one shared file, each `LoggedStream` with its own prefixed `FileLogger`, and explaining why append mode and single-call line writes are what make that safe.
 - Documented how to extend `LoggedStream` with custom parts: added a *Custom implementations* section to the README (with a trait / required-methods table and a worked `BufferFormatter` example) and clarified across the README and the mirrored rustdoc that every part — the wrapped IO object, formatter, filter and logger — can be replaced with your own implementation when no provided one fits.
 
 ## v0.7.0 (20.07.2026)

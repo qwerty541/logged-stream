@@ -2,7 +2,10 @@ use crate::RecordKind;
 use crate::record::Record;
 use std::borrow::Cow;
 use std::collections;
+use std::fs;
 use std::io::Write;
+use std::io::{self};
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::mpsc;
 
@@ -260,27 +263,146 @@ impl Logger for Box<ChannelLogger> {
 // FileLogger
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This implementation of [`Logger`] trait writes log records ([`Record`]) into provided file.
+/// Logger implementation that writes log records into the provided file.
+///
+/// This implementation of the [`Logger`] trait writes log records ([`Record`]) into a file, one line per
+/// record, in the form `[timestamp] {kind} {message}`.
+///
+/// Optionally, a prefix can be configured via [`with_prefix`] or [`set_prefix`]. When set, it is written
+/// verbatim immediately before the record kind character — that is, after the timestamp — which mirrors
+/// how [`ConsoleLogger`] renders its prefix relative to the timestamp emitted by the logging backend. This
+/// is useful to disambiguate output when several [`LoggedStream`]s (for example one per connection) write
+/// to the same file. No prefix is configured by default.
+///
+/// # Sharing one file between several loggers
+///
+/// Each record is rendered up front and written with a single [`write_all`] call, so concurrent loggers
+/// never interleave parts of a line. For that to hold, every logger must write to a file opened in
+/// **append** mode — either construct them with [`open`], or share one handle with
+/// [`fs::File::try_clone`]. Handing several loggers independently opened non-append files (for example
+/// from [`fs::File::create`]) gives each of them its own starting offset, and they will silently
+/// overwrite each other's records.
+///
+/// [`with_prefix`]: FileLogger::with_prefix
+/// [`set_prefix`]: FileLogger::set_prefix
+/// [`open`]: FileLogger::open
+/// [`write_all`]: io::Write::write_all
+/// [`ConsoleLogger`]: crate::ConsoleLogger
+/// [`LoggedStream`]: crate::LoggedStream
+#[derive(Debug)]
 pub struct FileLogger {
-    file: std::fs::File,
+    file: fs::File,
+    prefix: Option<Cow<'static, str>>,
 }
 
 impl FileLogger {
-    /// Construct a new instance of [`FileLogger`] using provided file.
-    pub fn new(file: std::fs::File) -> Self {
-        Self { file }
+    /// Construct a new instance of [`FileLogger`] using the provided file. The constructed logger has no
+    /// prefix; use [`with_prefix`] or [`set_prefix`] to add one.
+    ///
+    /// If the same file is going to be written by several loggers, it must be opened in append mode;
+    /// prefer [`open`], which does that for you.
+    ///
+    /// [`with_prefix`]: FileLogger::with_prefix
+    /// [`set_prefix`]: FileLogger::set_prefix
+    /// [`open`]: FileLogger::open
+    pub fn new(file: fs::File) -> Self {
+        Self { file, prefix: None }
+    }
+
+    /// Construct a new instance of [`FileLogger`] writing to the file at the provided path, creating the
+    /// file if it does not exist and opening it in append mode.
+    ///
+    /// Append mode is what makes it safe for several loggers — for example one per connection, each with
+    /// its own prefix — to write to the same file concurrently without overwriting each other. Returns an
+    /// [`Err`] if the file could not be opened.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logged_stream::FileLogger;
+    ///
+    /// let path = std::env::temp_dir().join("logged-stream-open-doctest.log");
+    /// let logger = FileLogger::open(&path)?;
+    /// # std::fs::remove_file(&path)?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        Ok(Self::new(file))
+    }
+
+    /// Set a prefix that will be written before the record kind character of every line produced by this
+    /// logger, and return the modified logger. This is a chainable builder method.
+    ///
+    /// The prefix is written verbatim between the timestamp and the record kind character — no separator
+    /// is inserted between the prefix and the kind — so include any trailing separator you want yourself
+    /// (for example a trailing space or brackets). An empty prefix therefore produces the same output as
+    /// no prefix at all.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logged_stream::FileLogger;
+    ///
+    /// let path = std::env::temp_dir().join("logged-stream-with-prefix-doctest.log");
+    /// let logger = FileLogger::open(&path)?.with_prefix("[conn 5] ");
+    /// assert_eq!(logger.prefix(), Some("[conn 5] "));
+    /// # std::fs::remove_file(&path)?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set or replace the prefix written before the record kind character of every line produced by this
+    /// logger, in place. See [`with_prefix`] for details on how the prefix is rendered.
+    ///
+    /// [`with_prefix`]: FileLogger::with_prefix
+    pub fn set_prefix(&mut self, prefix: impl Into<Cow<'static, str>>) {
+        self.prefix = Some(prefix.into());
+    }
+
+    /// Remove the configured prefix, so lines are written without any prefix again.
+    pub fn clear_prefix(&mut self) {
+        self.prefix = None;
+    }
+
+    /// Return the currently configured prefix, or [`None`] if no prefix is set.
+    #[inline]
+    pub fn prefix(&self) -> Option<&str> {
+        self.prefix.as_deref()
     }
 }
 
 impl Logger for FileLogger {
     fn log(&mut self, record: Record) {
-        let _ = writeln!(
-            self.file,
-            "[{}] {} {}",
-            record.time.format("%+"),
-            record.kind,
-            record.message
-        );
+        // Render the whole line before touching the file, then hand it to a single `write_all`.
+        // `std::fs::File` is unbuffered, so writing through `writeln!` would issue one write call per
+        // format piece and let concurrent loggers sharing the file splice their lines into each other.
+        // This is deliberately the opposite trade-off from `ConsoleLogger`, which formats straight into
+        // `log::log!` arguments: there the logging backend does the buffering and locking, here nothing
+        // does. The line is rendered into a fresh `String` rather than a buffer reused across calls so
+        // that a single large record does not permanently retain its capacity.
+        let line = match self.prefix.as_deref() {
+            Some(prefix) => format!(
+                "[{}] {}{} {}\n",
+                record.time.format("%+"),
+                prefix,
+                record.kind,
+                record.message
+            ),
+            None => format!(
+                "[{}] {} {}\n",
+                record.time.format("%+"),
+                record.kind,
+                record.message
+            ),
+        };
+        let _ = self.file.write_all(line.as_bytes());
     }
 }
 
@@ -304,7 +426,18 @@ mod tests {
     use crate::record::Record;
     use crate::record::RecordKind;
     use std::cell::RefCell;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::sync::Barrier;
     use std::sync::Once;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+    use std::thread;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // ConsoleLogger
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // A minimal `log::Log` implementation used to capture the exact level and line `ConsoleLogger`
     // emits through the `log` facade. Captured records are stored per-thread, so tests running in
@@ -359,42 +492,6 @@ mod tests {
 
     fn captured_records() -> Vec<(log::Level, String)> {
         CAPTURED.with(|captured| captured.borrow().clone())
-    }
-
-    fn assert_unpin<T: Unpin>() {}
-
-    #[test]
-    fn test_unpin() {
-        assert_unpin::<ConsoleLogger>();
-        assert_unpin::<ChannelLogger>();
-        assert_unpin::<MemoryStorageLogger>();
-        assert_unpin::<FileLogger>();
-    }
-
-    #[test]
-    fn test_trait_object_safety() {
-        // Assert traint object construct.
-        let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
-        let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
-        let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
-
-        let record = Record::new(RecordKind::Open, String::from("test log record"));
-
-        // Assert that trait object methods are dispatchable.
-        console.log(record.clone());
-        memory.log(record.clone());
-        channel.log(record);
-    }
-
-    fn assert_logger<T: Logger>() {}
-
-    #[test]
-    fn test_box() {
-        assert_logger::<Box<dyn Logger>>();
-        assert_logger::<Box<ConsoleLogger>>();
-        assert_logger::<Box<MemoryStorageLogger>>();
-        assert_logger::<Box<ChannelLogger>>();
-        assert_logger::<Box<FileLogger>>();
     }
 
     #[test]
@@ -501,7 +598,169 @@ mod tests {
         assert_eq!(lines[0], "> 01:02");
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // FileLogger
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Build a unique temporary file path for a test, so tests running in parallel never share a
+    // file. The loggers under test append, so any stale file from an earlier run is removed first.
+    fn temp_log_path(tag: &str) -> PathBuf {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "logged-stream-{}-{}-{}.log",
+            tag,
+            std::process::id(),
+            unique
+        ));
+        let _ = fs::remove_file(&path);
+        path
+    }
+
+    // Split a written line into its bracketed timestamp and everything after it.
+    fn split_timestamp(line: &str) -> (&str, &str) {
+        let close = line
+            .find("] ")
+            .expect("line should start with a bracketed timestamp");
+        (&line[1..close], &line[close + 2..])
+    }
+
+    #[test]
+    fn test_file_logger_prefix_default_none() {
+        let path = temp_log_path("prefix-default");
+        let logger = FileLogger::open(&path).unwrap();
+
+        assert_eq!(logger.prefix(), None);
+
+        drop(logger);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_file_logger_set_and_clear_prefix() {
+        let path = temp_log_path("prefix-set");
+        let mut logger = FileLogger::open(&path).unwrap();
+        assert_eq!(logger.prefix(), None);
+
+        logger.set_prefix(String::from("[server] "));
+        assert_eq!(logger.prefix(), Some("[server] "));
+
+        logger.set_prefix("[client] ");
+        assert_eq!(logger.prefix(), Some("[client] "));
+
+        logger.clear_prefix();
+        assert_eq!(logger.prefix(), None);
+
+        drop(logger);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_file_logger_writes_prefix_after_timestamp() {
+        let path = temp_log_path("prefix-placement");
+        let mut logger = FileLogger::open(&path).unwrap();
+
+        // Without a prefix, the line keeps the historical `[timestamp] {kind} {message}` shape.
+        logger.log(Record::new(RecordKind::Write, String::from("ab:cd")));
+
+        // With a prefix, it is written after the timestamp, immediately before the kind character.
+        logger.set_prefix("[conn 5] ");
+        logger.log(Record::new(RecordKind::Read, String::from("01:02")));
+
+        // After clearing, subsequent lines are written without any prefix again.
+        logger.clear_prefix();
+        logger.log(Record::new(
+            RecordKind::Shutdown,
+            String::from("Writer shutdown request."),
+        ));
+
+        drop(logger);
+
+        let content = fs::read_to_string(&path).unwrap();
+        let lines = content.lines().collect::<Vec<&str>>();
+        assert_eq!(lines.len(), 3);
+
+        let expected = ["> ab:cd", "[conn 5] < 01:02", "- Writer shutdown request."];
+        for (line, expected) in lines.iter().zip(expected) {
+            assert!(line.starts_with('['), "missing timestamp: {line}");
+            let (timestamp, rest) = split_timestamp(line);
+            // The part before the prefix must still be a real timestamp, which is what makes the
+            // written lines sortable and parseable by log tooling.
+            assert!(
+                chrono::DateTime::parse_from_rfc3339(timestamp).is_ok(),
+                "not a timestamp: {timestamp}"
+            );
+            assert_eq!(rest, expected);
+        }
+
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_file_logger_concurrent_loggers_do_not_interleave_lines() {
+        const THREADS: usize = 8;
+        const RECORDS: usize = 150;
+
+        // A payload shaped like the ones this crate actually produces, long enough that rendering it
+        // through several small writes would let concurrent loggers splice their lines together.
+        let payload = ["ab"; 120].join(":");
+        let path = temp_log_path("concurrent");
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let mut handles = Vec::new();
+
+        for thread_index in 0..THREADS {
+            let path = path.clone();
+            let payload = payload.clone();
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                // One logger per "connection", all appending to the same file.
+                let mut logger = FileLogger::open(&path)
+                    .unwrap()
+                    .with_prefix(format!("[conn {thread_index}] "));
+                barrier.wait();
+                for _ in 0..RECORDS {
+                    logger.log(Record::new(RecordKind::Write, payload.clone()));
+                }
+            }));
+        }
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let content = fs::read_to_string(&path).unwrap();
+        let lines = content.lines().collect::<Vec<&str>>();
+        assert_eq!(
+            lines.len(),
+            THREADS * RECORDS,
+            "records were lost or split across lines"
+        );
+        for line in lines {
+            // Any splicing of two concurrent writes breaks at least one of these invariants.
+            assert!(line.starts_with('['), "spliced line: {line}");
+            assert_eq!(line.matches("[conn ").count(), 1, "spliced line: {line}");
+            assert!(line.ends_with(&payload), "truncated line: {line}");
+        }
+
+        let _ = fs::remove_file(&path);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Trait assertions
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    fn assert_unpin<T: Unpin>() {}
+
     fn assert_send<T: Send>() {}
+
+    fn assert_logger<T: Logger>() {}
+
+    #[test]
+    fn test_unpin() {
+        assert_unpin::<ConsoleLogger>();
+        assert_unpin::<ChannelLogger>();
+        assert_unpin::<MemoryStorageLogger>();
+        assert_unpin::<FileLogger>();
+    }
 
     #[test]
     fn test_send() {
@@ -515,5 +774,35 @@ mod tests {
         assert_send::<Box<MemoryStorageLogger>>();
         assert_send::<Box<ChannelLogger>>();
         assert_send::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_box() {
+        assert_logger::<Box<dyn Logger>>();
+        assert_logger::<Box<ConsoleLogger>>();
+        assert_logger::<Box<MemoryStorageLogger>>();
+        assert_logger::<Box<ChannelLogger>>();
+        assert_logger::<Box<FileLogger>>();
+    }
+
+    #[test]
+    fn test_trait_object_safety() {
+        // Assert traint object construct.
+        let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
+        let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
+        let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
+        let path = temp_log_path("object-safety");
+        let mut file: Box<dyn Logger> = Box::new(FileLogger::open(&path).unwrap());
+
+        let record = Record::new(RecordKind::Open, String::from("test log record"));
+
+        // Assert that trait object methods are dispatchable.
+        console.log(record.clone());
+        memory.log(record.clone());
+        channel.log(record.clone());
+        file.log(record);
+
+        drop(file);
+        let _ = fs::remove_file(&path);
     }
 }
