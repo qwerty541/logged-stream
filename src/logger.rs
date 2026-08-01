@@ -787,7 +787,7 @@ mod tests {
 
     #[test]
     fn test_trait_object_safety() {
-        // Assert traint object construct.
+        // Assert trait object construct.
         let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
         let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));
         let mut channel: Box<dyn Logger> = Box::new(ChannelLogger::new());
