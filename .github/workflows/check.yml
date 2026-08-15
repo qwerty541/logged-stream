@@ -151,7 +151,7 @@ jobs:
             ${{ runner.os }}-rustup-toolchains-
 
       - name: Install cargo-msrv
-        uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+        uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2.85.8
         with:
           tool: cargo-msrv
 
