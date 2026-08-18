@@ -183,7 +183,7 @@ jobs:
           {
             echo '### Test coverage'
             echo
-            echo 'In-crate tests (`cargo test`), excluding the test code itself.'
+            echo 'In-crate tests (`cargo test`).'
             echo
             echo '```'
             cat coverage.txt
