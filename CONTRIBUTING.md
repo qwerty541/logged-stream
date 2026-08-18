@@ -74,6 +74,14 @@ Both commands are needed. Cargo skips doctests as soon as a target-selecting opt
 
 CI builds all targets and runs both commands across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
 
+CI also measures test coverage (Linux, stable) with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and appends the per-file table to the job's step summary. It is informational only — there is no threshold, and the job fails only if the tests do. Note what it measures: cargo-llvm-cov runs `cargo test --tests`, so only the lib unit tests are counted (doctests are neither run nor measured), and because the tests are inline `#[cfg(test)]` modules, the test code itself is included in the numbers. To reproduce locally (optional, needs a one-off setup):
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov
+cargo llvm-cov
+```
+
 ### Linting & Formatting
 
 - Formatting: `cargo fmt --all` (CI uses `cargo fmt --check`)

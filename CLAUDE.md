@@ -148,6 +148,12 @@ cargo test --lib --examples --benches
 # own invocation — CI runs this as a separate step too
 cargo test --doc
 
+# Test coverage (optional locally; CI runs it on ubuntu/stable and appends the per-file
+# table to the job's step summary — reported, never gated). Measures the lib unit tests
+# only: cargo-llvm-cov runs `cargo test --tests`, so doctests are neither run nor counted.
+# One-off setup: rustup component add llvm-tools-preview && cargo install cargo-llvm-cov
+cargo llvm-cov
+
 # Lint (must be clean; CI denies all warnings)
 cargo clippy --all-features -- -D warnings
 
@@ -173,10 +179,18 @@ cargo bench --bench filter
 
 CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy, fmt, and
 build+test+doctests across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an
-MSRV check (`cargo msrv find`). Keep changes green on **stable** at minimum; avoid
-nightly-only features. Avoid raising the MSRV without discussion — if it must change,
-update `rust-version` in [Cargo.toml](Cargo.toml), the badge in [README.md](README.md),
-and note it in the changelog.
+MSRV check (`cargo msrv find`) and a **coverage** job (ubuntu/stable,
+[cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), no cache — it is not on the
+critical path). Coverage is *reported, never gated*: the per-file table is appended to the
+job's step summary, there is no `--fail-under`, and the job fails only if the tests do. Two
+things to keep in mind when reading it: cargo-llvm-cov runs `cargo test --tests`, so only
+the lib unit tests are measured (doctests are neither run nor counted there); and because
+the tests are inline `#[cfg(test)]` modules, the test code itself is instrumented and
+included in the percentages — cargo-llvm-cov excludes only `tests/`, `examples/`,
+`benches/` directories and `tests.rs` / `*_tests.rs` files by default. Keep changes green
+on **stable** at minimum; avoid nightly-only features. Avoid raising the MSRV without
+discussion — if it must change, update `rust-version` in [Cargo.toml](Cargo.toml), the
+badge in [README.md](README.md), and note it in the changelog.
 
 ## Definition of Done
 
