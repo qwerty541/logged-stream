@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a `shared-file-logger` example showing several concurrent connections logging into one shared file, each `LoggedStream` with its own prefixed `FileLogger`, and explaining why append mode and single-call line writes are what make that safe.
 - Documented how to extend `LoggedStream` with custom parts: added a *Custom implementations* section to the README (with a trait / required-methods table and a worked `BufferFormatter` example) and clarified across the README and the mirrored rustdoc that every part — the wrapped IO object, formatter, filter and logger — can be replaced with your own implementation when no provided one fits.
 
+### Dependencies
+
+- Updated `tokio` from 1.52.3 to 1.53.1
+- Updated `log` from 0.4.33 to 0.4.34
+
 ## v0.7.0 (20.07.2026)
 
 ### Added
