@@ -85,7 +85,9 @@ cargo llvm-cov
 ### Linting & Formatting
 
 - Formatting: `cargo fmt --all` (CI uses `cargo fmt --check`)
-- Linting: `cargo clippy -- -D warnings`
+- Linting: `cargo clippy --all-targets -- -D warnings`
+
+`--all-targets` is what CI uses, and it matters: without it Clippy only sees the library, leaving the examples, the benches and the inline `#[cfg(test)]` modules unlinted. Doctests are outside Clippy's reach either way.
 
 Try to keep Clippy clean without adding broad `#[allow]` attributes unless there’s a strong reason.
 
