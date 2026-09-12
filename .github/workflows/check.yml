@@ -51,7 +51,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Run clippy
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy --all-features --all-targets -- -D warnings
 
   fmt:
     name: Formatting
