@@ -114,6 +114,8 @@ tests, docs, and the changelog.
   `composite-filters` example went unlisted in CONTRIBUTING.md for several releases. Update every
   copy together. One divergence is **deliberate**: CONTRIBUTING.md omits `--all-features` from its
   `clippy` line because the crate has no Cargo features (commit `8b2793a`) — do not "fix" it back.
+  `--all-targets` is the opposite case: it belongs in both copies and must stay in sync, because
+  it changes *what gets linted*, not just how the command is spelled.
 
 ### Behavioral gotchas
 
@@ -154,8 +156,10 @@ cargo test --doc
 # One-off setup: rustup component add llvm-tools-preview && cargo install cargo-llvm-cov
 cargo llvm-cov
 
-# Lint (must be clean; CI denies all warnings)
-cargo clippy --all-features -- -D warnings
+# Lint (must be clean; CI denies all warnings). `--all-targets` widens the scope beyond the
+# lib to the examples, the benches and the inline `#[cfg(test)]` modules — without it none of
+# those are linted at all. Doctests stay out of reach; clippy never sees them.
+cargo clippy --all-features --all-targets -- -D warnings
 
 # Format
 cargo fmt --all            # apply
@@ -177,8 +181,10 @@ cargo bench
 cargo bench --bench filter
 ```
 
-CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy, fmt, and
-build+test+doctests across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an
+CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy on ubuntu across
+`{stable, beta, nightly}` — with `--all-targets`, so the examples, the benches and the inline
+`#[cfg(test)]` modules are linted alongside the lib — fmt on ubuntu/stable, and
+build+test+doctests+bench across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an
 MSRV check (`cargo msrv find`) and a **coverage** job (ubuntu/stable,
 [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), no cache — it is not on the
 critical path). Coverage is *reported, never gated*: the per-file table is appended to the
@@ -214,7 +220,9 @@ which items are relevant, but do not skip an applicable one silently — call it
    often, because no document obviously belongs to them. So also work these triggers from the
    change itself:
    - Edited `.github/workflows/*.yml`, or changed any command CI runs → update *Common commands*
-     **and** the CI paragraph here, **and** *Testing* in [CONTRIBUTING.md](CONTRIBUTING.md).
+     **and** the CI paragraph here, **and** the matching section of
+     [CONTRIBUTING.md](CONTRIBUTING.md) — which is *Testing* for a test command but
+     *Linting & Formatting* for a clippy or fmt one, so follow the command, not the heading.
    - Added, renamed or removed an example → update the `[[example]]` entry in
      [Cargo.toml](Cargo.toml) **and** the example lists in all three of CLAUDE.md,
      [CONTRIBUTING.md](CONTRIBUTING.md) and [README.md](README.md).
@@ -232,7 +240,7 @@ which items are relevant, but do not skip an applicable one silently — call it
    cargo build --all-targets
    cargo test --lib --examples --benches
    cargo test --doc
-   cargo clippy --all-features -- -D warnings
+   cargo clippy --all-features --all-targets -- -D warnings
    cargo fmt --check
    ```
    Fix issues rather than suppressing them; avoid broad `#[allow(...)]` attributes
