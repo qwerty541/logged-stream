@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `RecordFilter::check_raw`, which lets a filter decide reads and writes on their raw bytes, passed as the new `RawRecord`, instead of on the formatted record. Its default implementation formats the record and calls `check`, so existing filters behave exactly as before. The provided filters implement it from the record kind, and `Box<T>` forwards it. Filters that wrap other filters should forward `check_raw` as well as `check`.
+- Added `LoggedStream::with_lazy_formatting`. When enabled, a read or write is formatted only if the filter asks for the formatted record or the accepted record is logged, so reads and writes rejected in `check_raw` (for example by `RecordKindFilter`) cost almost nothing. It is disabled by default: reads and writes are still formatted before the filter decides, as before.
+- Added a `stream` benchmark (`cargo bench --bench stream`) comparing a raw read with reads through `LoggedStream` in both formatting modes, filtered by `check` or by `check_raw`.
+
 ## v0.8.0 (14.09.2026)
 
 ### Added
