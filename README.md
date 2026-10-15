@@ -207,7 +207,7 @@ event  ->  Formatter  ->  Filter  ->  Logger
 
 -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
--   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`.
+-   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`. For reads and writes it can also decide on the raw bytes (`RecordFilter::check_raw`), and with lazy formatting (`LoggedStream::with_lazy_formatting`) those are formatted only if the filter or the logger needs them.
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
 All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
@@ -266,7 +266,7 @@ If none of the provided implementations matches your requirements, you can imple
 | Part | Trait | You must implement | Provided for you |
 | --- | --- | --- | --- |
 | Formatter | `BufferFormatter` | `get_separator`, `format_byte` | `format_buffer` — joins formatted bytes with your separator |
-| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter` |
+| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter`; `check_raw` — override it to decide reads and writes on their raw bytes (`RawRecord`) instead of the formatted record |
 | Logger | `Logger` | `log` | — |
 
 All three are `Send + 'static` and object-safe, so you can box them (`Box<dyn BufferFormatter>`) and choose an implementation at runtime. The fourth part needs no trait from this crate at all — anything implementing `std::io::Read`/`Write` or the `tokio` async equivalents can be wrapped, including your own types.
