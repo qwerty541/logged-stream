@@ -16,7 +16,9 @@
 //! -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 //!     strings you see in the log.
 //! -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
-//!     including shutdown and drop.
+//!     including shutdown and drop. For reads and writes it can also decide on the raw bytes
+//!     ([`RecordFilter::check_raw`]), and with [lazy formatting](LoggedStream::with_lazy_formatting)
+//!     those are formatted only if the filter or the logger needs them.
 //! -   **Logger ([`Logger`]).** The sink that consumes accepted records.
 //!
 //! All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
@@ -107,6 +109,7 @@ pub use logger::ConsoleLogger;
 pub use logger::FileLogger;
 pub use logger::Logger;
 pub use logger::MemoryStorageLogger;
+pub use record::RawRecord;
 pub use record::Record;
 pub use record::RecordKind;
 pub use stream::LoggedStream;
