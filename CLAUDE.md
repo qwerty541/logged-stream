@@ -24,8 +24,7 @@ read, write, error, shutdown, and drop that passes through it.
 
 `LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable
 parts. A record flows: **event → Formatter → Filter → Logger**. Reads and writes are offered
-to the filter as a `RawRecord` (`RecordFilter::check_raw`); with lazy formatting
-(`LoggedStream::with_lazy_formatting`, off by default) they are formatted only when the
+to the filter as a `RawRecord` (`RecordFilter::check_raw`) and formatted lazily: only when the
 filter asks for the formatted record or the accepted record is logged.
 
 1. **`S` — the inner IO object.** Sync (`std::io::Read` / `std::io::Write`) or async
@@ -98,12 +97,25 @@ tests, docs, and the changelog.
   object-safety, behavior).
 - **`RecordFilter::fmt_debug`:** composite filters render children through this hook.
   A new filter with meaningful state should override it (defaults to `"UnknownFilter"`).
-- **`RecordFilter::check_raw`:** reads and writes go to `check_raw`, whose default formats the
-  record and calls `check`, so a check-only filter behaves exactly as before. Every filter that
-  wraps or combines others must forward `check_raw` as well as `check` — `Box`, `AllFilter` and
-  `AnyFilter` do. A missed forward is silent: the wrapped filter's `check` then decides its reads
-  and writes, bypassing a decision taken in `check_raw`. A provided filter that decides from the
-  kind alone should override `check_raw` without calling `RawRecord::record`.
+- **Filters judge the formatted record by default — keep it that way.** `RecordFilter::check`,
+  the only required method, receives the formatted, human-readable `Record`, because custom
+  filters are usually written against what the log shows. Reads and writes go to `check_raw`,
+  whose default formats the record (on demand, at most once, shared with the logger) and calls
+  `check`, so a check-only filter always sees every read and write formatted. Do not change that default or hand `check` raw data.
+  Every filter that wraps or combines others must forward `check_raw` as well as `check` — `Box`,
+  `AllFilter` and `AnyFilter` do. A missed forward is silent: the wrapped filter's `check` then
+  decides its reads and writes, bypassing a decision taken in `check_raw`. A filter that decides
+  from the kind alone should override `check_raw` without calling `RawRecord::record`.
+- **One filter trait on purpose.** Formatted, raw and mixed filters all implement
+  `RecordFilter` (its rustdoc lists the three patterns). A separate raw-only trait cannot be
+  bridged into `RecordFilter` with a blanket impl: that conflicts (E0119) with
+  `impl<T: RecordFilter + ?Sized> RecordFilter for Box<T>`, because `Box` is `#[fundamental]`
+  (downstream crates may implement the raw trait for `Box<TheirType>`). A newtype adapter such as
+  `Raw<F>(F)` would compile, but every raw filter would then need wrapping at the call site; one
+  trait with a provided `check_raw` avoids that. Detecting statically whether a setup needs
+  formatting is impossible through
+  `Box<dyn RecordFilter>` (and an associated const would break object safety); lazy formatting
+  already makes that decision per event at runtime.
 - **Import style:** `rustfmt.toml` sets `imports_granularity = "Item"` — **one `use`
   per line, no brace-grouped imports** — and `use_field_init_shorthand = true`. Match
   the surrounding files exactly; `cargo fmt` enforces this.
@@ -140,11 +152,10 @@ tests, docs, and the changelog.
   through one of two private helpers, so the filter is applied uniformly: `LoggedStream::emit`
   sends records without bytes to `check`, and `LoggedStream::emit_bytes` sends reads and writes
   to `check_raw`.
-- **Formatting is eager unless lazy formatting is enabled.** By default `emit_bytes` formats
-  every read and write before the filter decides, exactly as before `check_raw` existed, so a
-  formatter sees every buffer. With `with_lazy_formatting(true)` a read or write is formatted only
-  when a filter calls `RawRecord::record` (the default `check_raw` does) or when it is logged, and
-  its timestamp is taken at that moment.
+- **Formatting is lazy.** `emit_bytes` hands the filter a `RawRecord`; the bytes are formatted
+  only when a filter calls `RawRecord::record` (the default `check_raw` does) or when the accepted
+  record is logged, and the record's timestamp is taken at that moment. A formatter therefore
+  sees only the reads and writes that a filter or the logger needed, not every buffer.
 - **`FileLogger` must render each line in one `write_all`.** `std::fs::File` is unbuffered,
   so formatting straight into it (e.g. `writeln!`) issues one write call per format piece and
   lets concurrent loggers sharing a file splice their lines together. Keep the render-then-
@@ -195,7 +206,7 @@ RUST_LOG=debug cargo run --example tcp-stream-console-logger   # control verbosi
 # Benchmarks (Criterion; harness = false)
 cargo bench
 cargo bench --bench filter
-cargo bench --bench stream   # LoggedStream end to end: check vs check_raw, eager vs lazy formatting
+cargo bench --bench stream   # LoggedStream end to end: formatted vs raw filtering, rejected vs logged reads
 ```
 
 CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy on ubuntu across
