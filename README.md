@@ -55,9 +55,10 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 -   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
 -   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
 -   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in, or implement the trait yourself if none fits your needs.
+-   **Cheap rejection.** Reads and writes are formatted lazily. A read that the filter rejects by its kind or its raw bytes, as `RecordKindFilter` does, costs about as much as the read itself: about 0.09 µs instead of about 0.72 ms for 8 KiB (`cargo bench --bench stream` on an Intel Core i5-8265U laptop). Filters that judge the formatted text, and records that a logger discards (for example `ConsoleLogger` below the active log level), still pay for formatting.
 -   **Small and safe.** A small dependency set and no `unsafe` code.
 
-`LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
+`LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`, with the formatter running lazily; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
 
 ## Usage
 
@@ -205,9 +206,11 @@ Every kind except `Open` is produced automatically. `Open` is a marker you recor
 event  ->  Formatter  ->  Filter  ->  Logger
 ```
 
+The formatter runs lazily: a read or write is formatted only when the filter asks for the formatted record or when the record is logged, so a read or write rejected without it costs almost nothing.
+
 -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
--   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`. For reads and writes it can also decide on the raw bytes (`RecordFilter::check_raw`), and with lazy formatting (`LoggedStream::with_lazy_formatting`) those are formatted only if the filter or the logger needs them.
+-   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`. It judges the formatted, human-readable record, and for reads and writes it can decide on the raw bytes instead (`RecordFilter::check_raw`).
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
 All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
