@@ -128,7 +128,7 @@ RUST_LOG=debug cargo run --example tcp-stream-console-logger
 This project uses [Criterion](https://github.com/bheisler/criterion.rs) for benchmarks.
 
 - Run all benches: `cargo bench`
-- Run a specific bench: `cargo bench --bench buffer-formatter`
+- Run a specific bench: `cargo bench --bench buffer-formatter` (the others are `filter` and `stream`)
 
 Tips for more stable numbers:
 

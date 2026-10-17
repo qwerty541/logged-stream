@@ -1,3 +1,4 @@
+use crate::RawRecord;
 use crate::Record;
 use crate::RecordKind;
 use itertools::Itertools;
@@ -12,14 +13,131 @@ use std::fmt;
 /// This trait allows filtering log records ([`Record`]) using the [`check`] method, which returns a [`bool`] value.
 /// It should be implemented for structures intended to be used as the filtering component within [`LoggedStream`].
 ///
+/// # Why filters judge the formatted record
+///
+/// [`check`], the only method a filter has to implement, receives the [`Record`] exactly as it would be logged:
+/// for a read or write, its bytes rendered by the stream's formatter into the human-readable text you see in the
+/// log; for an error, shutdown, drop or `Open` marker, its message. That is deliberate. Custom filters are usually
+/// written against what the log shows, such as "keep the writes that contain `ff:ff`", and matching that text is
+/// much easier than decoding raw bytes. A filter that implements only [`check`] therefore receives every read and
+/// write fully formatted.
+///
+/// The formatting is lazy, though: [`LoggedStream`] formats a read or write only when a filter asks for the
+/// formatted record or when the record is logged. Formatting is by far the most expensive step of logging a read or
+/// write (the provided formatters allocate once per byte), so one that is rejected without anyone asking costs
+/// almost nothing. Measured with `cargo bench --bench stream` on a laptop (Intel Core i5-8265U), rejecting an 8 KiB
+/// read took about 0.72 ms when it was formatted first and about 0.09 µs when it was not, about the cost of the read
+/// itself; for a 64-byte read, about 6 µs and 4 ns.
+///
+/// # Three kinds of filter
+///
+/// -   **Formatted:** implement only [`check`]. The default [`check_raw`] hands it the formatted record, so every
+///     read and write is formatted for it, whether it is kept or rejected.
+/// -   **Raw:** implement [`check_raw`] to decide reads and writes on [`RawRecord::kind`] or [`RawRecord::bytes`],
+///     for example to match a binary protocol header, and [`check`] for the records that carry no bytes: errors,
+///     shutdowns, drops and `Open` markers. Keep [`check`] consistent with [`check_raw`] for reads and writes too
+///     (see [`check_raw`]). [`DefaultFilter`] and [`RecordKindFilter`] work this way; they decide without looking at
+///     the bytes.
+/// -   **Mixed:** decide some reads and writes in [`check_raw`] and ask [`RawRecord::record`] for the formatted
+///     record for the rest. It is formatted at most once, however many filters ask for it.
+///
+/// A [`check_raw`] that calls [`RawRecord::record`] first has every read and write formatted before it decides, as
+/// before formatting became lazy. That is useful if your formatter has side effects that must see every buffer.
+///
+/// # Wrapping other filters
+///
+/// A filter that wraps or combines other filters must forward [`check_raw`] to them as well as [`check`], as
+/// `Box`, [`AllFilter`] and [`AnyFilter`] do. Otherwise the default [`check_raw`] sends reads and writes to the
+/// wrapped filters' [`check`], bypassing any decision they take in [`check_raw`].
+///
 /// [`check`]: RecordFilter::check
+/// [`check_raw`]: RecordFilter::check_raw
 /// [`LoggedStream`]: crate::LoggedStream
 pub trait RecordFilter: Send + 'static {
     /// This method returns [`bool`] value depending on if received log record ([`Record`]) should be processed
     /// by logging part inside [`LoggedStream`].
     ///
+    /// The record is exactly as it would be logged: a read or write has its bytes formatted, any other record
+    /// carries its message. For reads and writes, [`LoggedStream`] calls [`check_raw`], which formats the record and
+    /// calls this method unless it is overridden.
+    ///
+    /// [`check_raw`]: RecordFilter::check_raw
     /// [`LoggedStream`]: crate::LoggedStream
     fn check(&self, record: &Record) -> bool;
+
+    /// This method returns [`bool`] value depending on if a read or write ([`RawRecord`]) should be processed by
+    /// logging part inside [`LoggedStream`], judged on its kind or its raw bytes.
+    ///
+    /// [`LoggedStream`] calls this method for every read and write; every other record (errors, shutdowns, drops
+    /// and `Open` markers) goes to [`check`]. The default implementation formats the record with
+    /// [`RawRecord::record`] and returns what [`check`] says, so a filter that does not override this method
+    /// behaves exactly as if it did not exist.
+    ///
+    /// Override it to decide on [`RawRecord::kind`] or the raw [`RawRecord::bytes`], for example to match a
+    /// binary protocol header that the formatted message would obscure. A read or write that your implementation
+    /// rejects without calling [`RawRecord::record`] is not formatted for it, and not at all unless another filter,
+    /// such as an earlier child of an [`AllFilter`] or [`AnyFilter`], asked for the formatted record. One it accepts
+    /// is formatted at most once and shared with the logger.
+    ///
+    /// Keep [`check`] consistent with this method where you can: [`LoggedStream`] asks [`check`] only about
+    /// records without bytes, but direct callers, and wrappers that do not forward this method, ask it about reads
+    /// and writes too.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use logged_stream::LoggedStream;
+    /// use logged_stream::LowercaseHexadecimalFormatter;
+    /// use logged_stream::MemoryStorageLogger;
+    /// use logged_stream::RawRecord;
+    /// use logged_stream::Record;
+    /// use logged_stream::RecordFilter;
+    /// use logged_stream::RecordKind;
+    /// use std::io::Cursor;
+    /// use std::io::Read;
+    ///
+    /// /// Keeps reads and writes that start with a TLS handshake byte (0x16), and every other record.
+    /// struct TlsHandshakes;
+    ///
+    /// impl RecordFilter for TlsHandshakes {
+    ///     fn check(&self, record: &Record) -> bool {
+    ///         // `LoggedStream` brings only errors, shutdowns, drops and opens here. Direct callers and
+    ///         // wrappers may bring reads and writes too: judge those on the hexadecimal message.
+    ///         match record.kind {
+    ///             RecordKind::Read | RecordKind::Write => record.message.starts_with("16"),
+    ///             _ => true,
+    ///         }
+    ///     }
+    ///
+    ///     fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+    ///         record.bytes().first() == Some(&0x16)
+    ///     }
+    /// }
+    ///
+    /// let mut stream = LoggedStream::new(
+    ///     Cursor::new(vec![0x16, 0x03, 0x01, 0x17, 0x03]),
+    ///     LowercaseHexadecimalFormatter::new_default(),
+    ///     TlsHandshakes,
+    ///     MemoryStorageLogger::new(16),
+    /// );
+    ///
+    /// let mut handshake = [0u8; 3];
+    /// stream.read_exact(&mut handshake)?; // kept
+    /// let mut application_data = [0u8; 2];
+    /// stream.read_exact(&mut application_data)?; // rejected without being formatted
+    ///
+    /// let records = stream.get_log_records();
+    /// assert_eq!(records.len(), 1);
+    /// assert_eq!(records[0].message, "16:03:01");
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    ///
+    /// [`check`]: RecordFilter::check
+    /// [`check_raw`]: RecordFilter::check_raw
+    /// [`LoggedStream`]: crate::LoggedStream
+    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+        self.check(record.record())
+    }
 
     /// This method provides [`fmt::Debug`] representation of the filter. It is used by composite filters
     /// ([`AllFilter`] and [`AnyFilter`]) to produce detailed debug output of their underlying filters.
@@ -33,6 +151,12 @@ pub trait RecordFilter: Send + 'static {
 impl<T: RecordFilter + ?Sized> RecordFilter for Box<T> {
     fn check(&self, record: &Record) -> bool {
         (**self).check(record)
+    }
+
+    // Forwarding is required for correctness, not just speed: without it a boxed filter that decides reads and
+    // writes in `check_raw` would be judged by its `check` instead.
+    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+        (**self).check_raw(record)
     }
 
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -57,6 +181,11 @@ impl RecordFilter for DefaultFilter {
         true
     }
 
+    #[inline]
+    fn check_raw(&self, _record: &RawRecord<'_>) -> bool {
+        true
+    }
+
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -70,8 +199,10 @@ impl RecordFilter for DefaultFilter {
 ///
 /// This implementation of the [`RecordFilter`] trait accepts an array of allowed log record kinds ([`RecordKind`]) during
 /// construction. Its [`check`] method returns `true` if the received log record kind is present in this array.
+/// Reads and writes are decided from their kind alone in [`check_raw`], without asking for the formatted record.
 ///
 /// [`check`]: RecordFilter::check
+/// [`check_raw`]: RecordFilter::check_raw
 #[derive(Debug)]
 pub struct RecordKindFilter {
     allowed_kinds: Vec<RecordKind>,
@@ -92,6 +223,11 @@ impl RecordFilter for RecordKindFilter {
         self.allowed_kinds.contains(&record.kind)
     }
 
+    #[inline]
+    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+        self.allowed_kinds.contains(&record.kind())
+    }
+
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -106,6 +242,8 @@ impl RecordFilter for RecordKindFilter {
 /// This implementation of the [`RecordFilter`] trait accepts a vector of boxed filters during construction.
 /// Its [`check`] method returns `true` only if **all** underlying filters return `true` for the given record.
 /// If the filter list is empty, it returns `true` by default (empty conjunction is vacuously true).
+/// Reads and writes go through [`check_raw`] of the underlying filters the same way, one by one in order. They
+/// share one [`RawRecord`], so it is formatted at most once however many of them ask for the formatted record.
 ///
 /// This filter is useful for combining multiple filtering conditions where all must be satisfied.
 ///
@@ -127,6 +265,7 @@ impl RecordFilter for RecordKindFilter {
 /// ```
 ///
 /// [`check`]: RecordFilter::check
+/// [`check_raw`]: RecordFilter::check_raw
 pub struct AllFilter {
     filters: Vec<Box<dyn RecordFilter>>,
 }
@@ -167,6 +306,11 @@ impl RecordFilter for AllFilter {
         self.filters.iter().all(|filter| filter.check(record))
     }
 
+    #[inline]
+    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+        self.filters.iter().all(|filter| filter.check_raw(record))
+    }
+
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -181,6 +325,8 @@ impl RecordFilter for AllFilter {
 /// This implementation of the [`RecordFilter`] trait accepts a vector of boxed filters during construction.
 /// Its [`check`] method returns `true` if **any** of the underlying filters returns `true` for the given record.
 /// If the filter list is empty, it returns `false` by default (empty disjunction is false).
+/// Reads and writes go through [`check_raw`] of the underlying filters the same way, one by one in order. They
+/// share one [`RawRecord`], so it is formatted at most once however many of them ask for the formatted record.
 ///
 /// This filter is useful for combining multiple filtering conditions where at least one must be satisfied.
 ///
@@ -206,6 +352,7 @@ impl RecordFilter for AllFilter {
 /// ```
 ///
 /// [`check`]: RecordFilter::check
+/// [`check_raw`]: RecordFilter::check_raw
 pub struct AnyFilter {
     filters: Vec<Box<dyn RecordFilter>>,
 }
@@ -246,6 +393,11 @@ impl RecordFilter for AnyFilter {
         self.filters.iter().any(|filter| filter.check(record))
     }
 
+    #[inline]
+    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+        self.filters.iter().any(|filter| filter.check_raw(record))
+    }
+
     fn fmt_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -283,14 +435,73 @@ impl fmt::Debug for RecordFiltersDebug<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::buffer_formatter::BufferFormatter;
+    use crate::buffer_formatter::LowercaseHexadecimalFormatter;
     use crate::filter::AllFilter;
     use crate::filter::AnyFilter;
     use crate::filter::DefaultFilter;
     use crate::filter::RecordFilter;
+    use crate::filter::RecordFilterDebug;
     use crate::filter::RecordKindFilter;
+    use crate::record::RawRecord;
     use crate::record::Record;
     use crate::record::RecordKind;
+    use std::cell::Cell;
     use std::fmt;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    /// Formats like [`LowercaseHexadecimalFormatter`] and counts its `format_buffer` calls.
+    struct CountingFormatter(Cell<usize>);
+
+    impl BufferFormatter for CountingFormatter {
+        fn get_separator(&self) -> &str {
+            ":"
+        }
+
+        fn format_byte(&self, byte: &u8) -> String {
+            format!("{byte:02x}")
+        }
+
+        fn format_buffer(&self, buffer: &[u8]) -> String {
+            self.0.set(self.0.get() + 1);
+            LowercaseHexadecimalFormatter::new_default().format_buffer(buffer)
+        }
+    }
+
+    /// Judges only the formatted message: keeps records whose message contains the needle.
+    struct MessageFilter(&'static str);
+
+    impl RecordFilter for MessageFilter {
+        fn check(&self, record: &Record) -> bool {
+            record.message.contains(self.0)
+        }
+    }
+
+    /// Decides reads and writes on their first raw byte. Its `check` keeps everything, so a test can tell which
+    /// of the two methods made a decision.
+    struct FirstByteFilter(u8);
+
+    impl RecordFilter for FirstByteFilter {
+        fn check(&self, _record: &Record) -> bool {
+            true
+        }
+
+        fn check_raw(&self, record: &RawRecord<'_>) -> bool {
+            record.bytes().first() == Some(&self.0)
+        }
+    }
+
+    /// Accepts everything through `check` and counts its calls.
+    struct CountingFilter(Arc<AtomicUsize>);
+
+    impl RecordFilter for CountingFilter {
+        fn check(&self, _record: &Record) -> bool {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            true
+        }
+    }
 
     fn assert_unpin<T: Unpin>() {}
 
@@ -527,6 +738,180 @@ mod tests {
     }
 
     #[test]
+    fn test_check_raw_defaults_to_formatted_check() {
+        let formatter = CountingFormatter(Cell::new(0));
+        let filter = MessageFilter("ff");
+
+        assert!(filter.check_raw(&RawRecord::new(RecordKind::Read, &[0x0a, 0xff], &formatter)));
+        assert!(!filter.check_raw(&RawRecord::new(
+            RecordKind::Write,
+            &[0x0a, 0x0b],
+            &formatter
+        )));
+        // The default has to format each record to hand it to `check`.
+        assert_eq!(formatter.0.get(), 2);
+    }
+
+    #[test]
+    fn test_provided_filters_check_raw_agrees_with_check_without_formatting() {
+        let kinds = [
+            RecordKind::Open,
+            RecordKind::Read,
+            RecordKind::Write,
+            RecordKind::Error,
+            RecordKind::Shutdown,
+            RecordKind::Drop,
+        ];
+        let filters: Vec<Box<dyn RecordFilter>> = vec![
+            Box::new(DefaultFilter),
+            Box::new(RecordKindFilter::new(&[])),
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(RecordKindFilter::new(&[
+                RecordKind::Drop,
+                RecordKind::Error,
+                RecordKind::Shutdown,
+            ])),
+            Box::new(AllFilter::new(vec![])),
+            Box::new(AnyFilter::new(vec![])),
+            Box::new(AllFilter::new(vec![
+                Box::new(RecordKindFilter::new(&[
+                    RecordKind::Read,
+                    RecordKind::Write,
+                ])),
+                Box::new(RecordKindFilter::new(&[
+                    RecordKind::Read,
+                    RecordKind::Error,
+                ])),
+            ])),
+            Box::new(AnyFilter::new(vec![
+                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+                Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            ])),
+            Box::new(AllFilter::new(vec![Box::new(AnyFilter::new(vec![
+                Box::new(DefaultFilter),
+                Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            ]))])),
+        ];
+        let formatter = CountingFormatter(Cell::new(0));
+        let reference = LowercaseHexadecimalFormatter::new_default();
+
+        for filter in &filters {
+            for kind in kinds {
+                let raw = RawRecord::new(kind, &[0x01, 0x02], &formatter);
+                let record = Record::new(kind, reference.format_buffer(&[0x01, 0x02]));
+                assert_eq!(
+                    filter.check_raw(&raw),
+                    filter.check(&record),
+                    "{:?} disagrees for {kind:?}",
+                    RecordFilterDebug(filter.as_ref())
+                );
+            }
+        }
+        // The provided filters decide from the kind alone, so nothing was formatted.
+        assert_eq!(formatter.0.get(), 0);
+    }
+
+    #[test]
+    fn test_box_forwards_check_raw() {
+        let formatter = LowercaseHexadecimalFormatter::new_default();
+        let handshake = RawRecord::new(RecordKind::Read, &[0x16, 0x03], &formatter);
+        let application_data = RawRecord::new(RecordKind::Read, &[0x17, 0x03], &formatter);
+
+        // `check` keeps everything, so only a forwarded `check_raw` can reject the application data.
+        let boxed: Box<dyn RecordFilter> = Box::new(FirstByteFilter(0x16));
+        assert!(boxed.check_raw(&handshake));
+        assert!(!boxed.check_raw(&application_data));
+
+        let double_boxed: Box<Box<dyn RecordFilter>> = Box::new(boxed);
+        assert!(!double_boxed.check_raw(&application_data));
+
+        // Composite children are boxed too.
+        let all = AllFilter::new(vec![Box::new(FirstByteFilter(0x16))]);
+        assert!(!all.check_raw(&application_data));
+        let any = AnyFilter::new(vec![Box::new(FirstByteFilter(0x16))]);
+        assert!(!any.check_raw(&application_data));
+    }
+
+    #[test]
+    fn test_composite_check_raw_formats_once_for_several_children() {
+        let formatter = CountingFormatter(Cell::new(0));
+        let raw = RawRecord::new(RecordKind::Read, &[0x0a, 0xff], &formatter);
+
+        let filter = AllFilter::new(vec![
+            Box::new(MessageFilter("0a")),
+            Box::new(MessageFilter("ff")),
+        ]);
+        assert!(filter.check_raw(&raw));
+        assert_eq!(formatter.0.get(), 1);
+    }
+
+    #[test]
+    fn test_composite_check_raw_keeps_child_order() {
+        // A child that needs the formatted record comes before a kind filter: it still sees the write, exactly
+        // as `check` would show it.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let formatter = CountingFormatter(Cell::new(0));
+        let write = RawRecord::new(RecordKind::Write, &[0x01], &formatter);
+        let filter = AllFilter::new(vec![
+            Box::new(CountingFilter(Arc::clone(&calls))),
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+        ]);
+        assert!(!filter.check_raw(&write));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(formatter.0.get(), 1);
+
+        // The kind filter comes first: the write is rejected before the child or the formatter runs, exactly as
+        // `check` would stop at the kind filter.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let formatter = CountingFormatter(Cell::new(0));
+        let write = RawRecord::new(RecordKind::Write, &[0x01], &formatter);
+        let filter = AllFilter::new(vec![
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(CountingFilter(Arc::clone(&calls))),
+        ]);
+        assert!(!filter.check_raw(&write));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        assert_eq!(formatter.0.get(), 0);
+
+        // AnyFilter mirrors it: a kind filter that accepts settles the read before the child runs.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let formatter = CountingFormatter(Cell::new(0));
+        let read = RawRecord::new(RecordKind::Read, &[0x01], &formatter);
+        let filter = AnyFilter::new(vec![
+            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(CountingFilter(Arc::clone(&calls))),
+        ]);
+        assert!(filter.check_raw(&read));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        assert_eq!(formatter.0.get(), 0);
+    }
+
+    #[test]
+    fn test_composite_lets_raw_child_decide_after_check_only_child() {
+        // The first child judges the formatted message and accepts; the raw child after it still decides on the
+        // raw bytes, although its `check` would keep everything. Each record is formatted once, for the first
+        // child.
+        let formatter = CountingFormatter(Cell::new(0));
+        let all = AllFilter::new(vec![
+            Box::new(MessageFilter("16")),
+            Box::new(FirstByteFilter(0x16)),
+        ]);
+        assert!(all.check_raw(&RawRecord::new(RecordKind::Read, &[0x16, 0x01], &formatter)));
+        assert!(!all.check_raw(&RawRecord::new(RecordKind::Read, &[0x01, 0x16], &formatter)));
+        assert_eq!(formatter.0.get(), 2);
+
+        // AnyFilter mirrors it: the first child rejects on the formatted message, the raw child decides.
+        let formatter = CountingFormatter(Cell::new(0));
+        let any = AnyFilter::new(vec![
+            Box::new(MessageFilter("ff")),
+            Box::new(FirstByteFilter(0x16)),
+        ]);
+        assert!(any.check_raw(&RawRecord::new(RecordKind::Read, &[0x16, 0x01], &formatter)));
+        assert!(!any.check_raw(&RawRecord::new(RecordKind::Read, &[0x01, 0x02], &formatter)));
+        assert_eq!(formatter.0.get(), 2);
+    }
+
+    #[test]
     fn test_trait_object_safety() {
         // Assert trait object construct.
         let default: Box<dyn RecordFilter> = Box::<DefaultFilter>::default();
@@ -541,6 +926,13 @@ mod tests {
         _ = record_kind.check(&record);
         _ = all.check(&record);
         _ = any.check(&record);
+
+        let formatter = LowercaseHexadecimalFormatter::new_default();
+        let raw = RawRecord::new(RecordKind::Read, &[0x01], &formatter);
+        assert!(default.check_raw(&raw));
+        assert!(!record_kind.check_raw(&raw));
+        assert!(all.check_raw(&raw));
+        assert!(!any.check_raw(&raw));
     }
 
     fn assert_record_filter<T: RecordFilter>() {}

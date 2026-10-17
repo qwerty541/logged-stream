@@ -63,3 +63,8 @@ harness = false
 name = "filter"
 path = "benches/filter.rs"
 harness = false
+
+[[bench]]
+name = "stream"
+path = "benches/stream.rs"
+harness = false
