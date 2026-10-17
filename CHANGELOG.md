@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `RecordFilter::check_raw`, which lets a filter decide reads and writes on their raw bytes, passed as the new `RawRecord`, instead of on the formatted record. Its default implementation formats the record and calls `check`, so existing filters behave exactly as before. The provided filters implement it from the record kind, and `Box<T>` forwards it. Filters that wrap other filters should forward `check_raw` as well as `check`.
-- Added `LoggedStream::with_lazy_formatting`. When enabled, a read or write is formatted only if the filter asks for the formatted record or the accepted record is logged, so reads and writes rejected in `check_raw` (for example by `RecordKindFilter`) cost almost nothing. It is disabled by default: reads and writes are still formatted before the filter decides, as before.
-- Added a `stream` benchmark (`cargo bench --bench stream`) comparing a raw read with reads through `LoggedStream` in both formatting modes, filtered by `check` or by `check_raw`.
+- Added `RecordFilter::check_raw`, which lets a filter decide reads and writes on their raw bytes, passed as the new `RawRecord`, instead of on the formatted record. Its default implementation formats the record and calls `check`, so a filter that implements only `check` keeps receiving every read and write formatted, exactly as before. `DefaultFilter` and `RecordKindFilter` implement it without formatting, `AllFilter` and `AnyFilter` forward it to their children in order, and `Box<T>` forwards it. Filters that wrap other filters should forward `check_raw` as well as `check`.
+- Added a `stream` benchmark (`cargo bench --bench stream`) comparing a bare read with reads through `LoggedStream` that are rejected or logged, by filters that decide in `check` or in `check_raw`.
+
+### Changed
+
+- Reads and writes are now formatted lazily: only when the filter asks for the formatted record or when the accepted record is logged. A read or write that the filter rejects without the formatted record, by its kind as `RecordKindFilter` does or on its raw bytes in `check_raw`, is no longer formatted at all and costs about as much as the IO itself. In `cargo bench --bench stream` on a laptop (Intel Core i5-8265U), rejecting an 8 KiB read by its kind now takes about 0.09 µs, against about 0.72 ms when the read is formatted first, as every read was before (more than 8,000 times faster); for a 64-byte read it is about 4 ns against about 6 µs. Logged reads and writes cost the same as before, because they still have to be formatted, and so do filters that implement only `check`, including custom filters written for earlier versions, which behave exactly as before. Two things can notice the difference: a formatter with side effects or internal state is no longer called for reads and writes rejected without formatting, and a read or write that the filter accepts without asking for the formatted record (for example with `DefaultFilter` or `RecordKindFilter`) is formatted, and so timestamped, just after the filter's check instead of just before it. To have every read and write formatted again, call `RawRecord::record` at the start of the filter's `check_raw`.
+
+### Documentation
+
+- Documented why `RecordFilter::check` receives the formatted record, the three ways to write a filter (formatted, raw and mixed), and what formatting costs, with benchmark numbers.
 
 ## v0.8.0 (14.09.2026)
 
