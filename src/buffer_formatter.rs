@@ -11,6 +11,11 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// This trait allows to format bytes buffer using [`format_buffer`] method. It should be implemented for
 /// structures which are going to be used as formatting part inside [`LoggedStream`].
 ///
+/// [`LoggedStream`] calls [`format_buffer`] lazily, at most once per read or write, and only for the
+/// reads and writes that a filter asks to see formatted or that are logged. Do not rely on it running
+/// for every buffer; if your formatter has side effects that must, have the filter's
+/// [`RecordFilter::check_raw`] call [`RawRecord::record`] before it decides.
+///
 /// # Wrapping in an `Arc`
 ///
 /// `BufferFormatter` is implemented for `Box<dyn BufferFormatter>` unconditionally, but the blanket
@@ -22,6 +27,8 @@ const DEFAULT_SEPARATOR: &str = ":";
 ///
 /// [`format_buffer`]: BufferFormatter::format_buffer
 /// [`LoggedStream`]: crate::LoggedStream
+/// [`RecordFilter::check_raw`]: crate::RecordFilter::check_raw
+/// [`RawRecord::record`]: crate::RawRecord::record
 pub trait BufferFormatter: Send + 'static {
     /// This method returns a separator which will be inserted between bytes during [`format_buffer`] method call.
     /// It should be implemented manually.

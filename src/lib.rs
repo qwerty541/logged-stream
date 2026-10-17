@@ -7,7 +7,9 @@
 //! # Architecture
 //!
 //! [`LoggedStream`] is generic over four independent, pluggable parts. Each logged event flows
-//! through them in order: `event -> Formatter -> Filter -> Logger`.
+//! through them in order: `event -> Formatter -> Filter -> Logger`. The formatter runs lazily: a
+//! read or write is formatted only when the filter asks for the formatted record or when the
+//! record is logged, so a read or write rejected without it costs almost nothing.
 //!
 //! -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing [`Read`] /
 //!     [`Write`] (or the [`tokio`] async equivalents) works — a socket, a file, an in-memory buffer,
@@ -16,9 +18,8 @@
 //! -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 //!     strings you see in the log.
 //! -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
-//!     including shutdown and drop. For reads and writes it can also decide on the raw bytes
-//!     ([`RecordFilter::check_raw`]), and with [lazy formatting](LoggedStream::with_lazy_formatting)
-//!     those are formatted only if the filter or the logger needs them.
+//!     including shutdown and drop. It judges the formatted, human-readable record, and for reads
+//!     and writes it can decide on the raw bytes instead ([`RecordFilter::check_raw`]).
 //! -   **Logger ([`Logger`]).** The sink that consumes accepted records.
 //!
 //! All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`

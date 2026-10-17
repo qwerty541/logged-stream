@@ -13,14 +13,36 @@ use std::fmt;
 /// This trait allows filtering log records ([`Record`]) using the [`check`] method, which returns a [`bool`] value.
 /// It should be implemented for structures intended to be used as the filtering component within [`LoggedStream`].
 ///
-/// # Formatted and raw filtering
+/// # Why filters judge the formatted record
 ///
-/// [`check`] judges the formatted [`Record`], the human-readable form you see in the log, and it is the only
-/// method a filter has to implement. Reads and writes are offered to [`check_raw`] instead, as a [`RawRecord`]
-/// carrying the record kind and the raw bytes. Its default implementation hands the formatted record to
-/// [`check`], so a filter that implements only [`check`] sees every record exactly as before. Override
-/// [`check_raw`] to decide reads and writes on their kind or their raw bytes; with lazy formatting enabled on the
-/// stream ([`LoggedStream::with_lazy_formatting`]), the ones your filter rejects are then not formatted at all.
+/// [`check`], the only method a filter has to implement, receives the [`Record`] exactly as it would be logged:
+/// for a read or write, its bytes rendered by the stream's formatter into the human-readable text you see in the
+/// log; for an error, shutdown, drop or `Open` marker, its message. That is deliberate. Custom filters are usually
+/// written against what the log shows, such as "keep the writes that contain `ff:ff`", and matching that text is
+/// much easier than decoding raw bytes. A filter that implements only [`check`] therefore receives every read and
+/// write fully formatted.
+///
+/// The formatting is lazy, though: [`LoggedStream`] formats a read or write only when a filter asks for the
+/// formatted record or when the record is logged. Formatting is by far the most expensive step of logging a read or
+/// write (the provided formatters allocate once per byte), so one that is rejected without anyone asking costs
+/// almost nothing. Measured with `cargo bench --bench stream` on a laptop (Intel Core i5-8265U), rejecting an 8 KiB
+/// read took about 0.72 ms when it was formatted first and about 0.09 µs when it was not, about the cost of the read
+/// itself; for a 64-byte read, about 6 µs and 4 ns.
+///
+/// # Three kinds of filter
+///
+/// -   **Formatted:** implement only [`check`]. The default [`check_raw`] hands it the formatted record, so every
+///     read and write is formatted for it, whether it is kept or rejected.
+/// -   **Raw:** implement [`check_raw`] to decide reads and writes on [`RawRecord::kind`] or [`RawRecord::bytes`],
+///     for example to match a binary protocol header, and [`check`] for the records that carry no bytes: errors,
+///     shutdowns, drops and `Open` markers. Keep [`check`] consistent with [`check_raw`] for reads and writes too
+///     (see [`check_raw`]). [`DefaultFilter`] and [`RecordKindFilter`] work this way; they decide without looking at
+///     the bytes.
+/// -   **Mixed:** decide some reads and writes in [`check_raw`] and ask [`RawRecord::record`] for the formatted
+///     record for the rest. It is formatted at most once, however many filters ask for it.
+///
+/// A [`check_raw`] that calls [`RawRecord::record`] first has every read and write formatted before it decides, as
+/// before formatting became lazy. That is useful if your formatter has side effects that must see every buffer.
 ///
 /// # Wrapping other filters
 ///
@@ -31,13 +53,13 @@ use std::fmt;
 /// [`check`]: RecordFilter::check
 /// [`check_raw`]: RecordFilter::check_raw
 /// [`LoggedStream`]: crate::LoggedStream
-/// [`LoggedStream::with_lazy_formatting`]: crate::LoggedStream::with_lazy_formatting
 pub trait RecordFilter: Send + 'static {
     /// This method returns [`bool`] value depending on if received log record ([`Record`]) should be processed
     /// by logging part inside [`LoggedStream`].
     ///
-    /// For reads and writes, [`LoggedStream`] calls [`check_raw`], which calls this method unless it is
-    /// overridden.
+    /// The record is exactly as it would be logged: a read or write has its bytes formatted, any other record
+    /// carries its message. For reads and writes, [`LoggedStream`] calls [`check_raw`], which formats the record and
+    /// calls this method unless it is overridden.
     ///
     /// [`check_raw`]: RecordFilter::check_raw
     /// [`LoggedStream`]: crate::LoggedStream
@@ -52,9 +74,10 @@ pub trait RecordFilter: Send + 'static {
     /// behaves exactly as if it did not exist.
     ///
     /// Override it to decide on [`RawRecord::kind`] or the raw [`RawRecord::bytes`], for example to match a
-    /// binary protocol header that the formatted message would obscure. With lazy formatting enabled on the
-    /// stream ([`LoggedStream::with_lazy_formatting`]), a read or write that your implementation rejects without
-    /// calling [`RawRecord::record`] is not formatted at all, and one it accepts is formatted once, for the logger.
+    /// binary protocol header that the formatted message would obscure. A read or write that your implementation
+    /// rejects without calling [`RawRecord::record`] is not formatted for it, and not at all unless another filter,
+    /// such as an earlier child of an [`AllFilter`] or [`AnyFilter`], asked for the formatted record. One it accepts
+    /// is formatted at most once and shared with the logger.
     ///
     /// Keep [`check`] consistent with this method where you can: [`LoggedStream`] asks [`check`] only about
     /// records without bytes, but direct callers, and wrappers that do not forward this method, ask it about reads
@@ -96,8 +119,7 @@ pub trait RecordFilter: Send + 'static {
     ///     LowercaseHexadecimalFormatter::new_default(),
     ///     TlsHandshakes,
     ///     MemoryStorageLogger::new(16),
-    /// )
-    /// .with_lazy_formatting(true);
+    /// );
     ///
     /// let mut handshake = [0u8; 3];
     /// stream.read_exact(&mut handshake)?; // kept
@@ -113,7 +135,6 @@ pub trait RecordFilter: Send + 'static {
     /// [`check`]: RecordFilter::check
     /// [`check_raw`]: RecordFilter::check_raw
     /// [`LoggedStream`]: crate::LoggedStream
-    /// [`LoggedStream::with_lazy_formatting`]: crate::LoggedStream::with_lazy_formatting
     fn check_raw(&self, record: &RawRecord<'_>) -> bool {
         self.check(record.record())
     }

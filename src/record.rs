@@ -36,13 +36,11 @@ impl Record {
 ///
 /// It exposes the record kind and the raw bytes exactly as they passed through the stream. The formatted
 /// [`Record`] is built the first time [`record`] is called and then reused: by any other filter that asks for
-/// it, and as the record handed to the logger. A read or write is therefore formatted at most once. With lazy
-/// formatting enabled on the stream ([`LoggedStream::with_lazy_formatting`]), one that is rejected before anything
-/// asks for the formatted record is not formatted at all.
+/// it, and as the record handed to the logger. A read or write is therefore formatted at most once, and one that
+/// is rejected before anything asks for the formatted record is not formatted at all.
 ///
 /// [`record`]: RawRecord::record
 /// [`RecordFilter::check_raw`]: crate::RecordFilter::check_raw
-/// [`LoggedStream::with_lazy_formatting`]: crate::LoggedStream::with_lazy_formatting
 pub struct RawRecord<'a> {
     kind: RecordKind,
     bytes: &'a [u8],
@@ -85,9 +83,9 @@ impl<'a> RawRecord<'a> {
     /// Return the formatted record. The first call formats the bytes and takes the timestamp; later calls
     /// return the same record.
     ///
-    /// The timestamp is therefore taken when the record is first formatted. Without lazy formatting that is
-    /// right after the read or write, as before; with it, it is when a filter first asks for the record, or when
-    /// the accepted record is handed to the logger.
+    /// The timestamp is therefore taken when the record is first formatted: while the filter decides if a filter
+    /// asks for the record, otherwise just after the filter accepts it, when it is handed to the logger. Either
+    /// way it is taken within the same read or write call, after the IO has completed.
     pub fn record(&self) -> &Record {
         self.record.get_or_init(|| self.format())
     }
