@@ -54,6 +54,10 @@ path = "examples/shared-file-logger.rs"
 name = "composite-filters"
 path = "examples/composite-filters.rs"
 
+[[example]]
+name = "custom-filters"
+path = "examples/custom-filters.rs"
+
 [[bench]]
 name = "buffer-formatter"
 path = "benches/buffer-formatter.rs"
@@ -62,4 +66,9 @@ harness = false
 [[bench]]
 name = "filter"
 path = "benches/filter.rs"
+harness = false
+
+[[bench]]
+name = "stream"
+path = "benches/stream.rs"
 harness = false
