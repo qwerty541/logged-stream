@@ -9,16 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `RecordFilter::check_raw`, which lets a filter decide reads and writes on their raw bytes, passed as the new `RawRecord`, instead of on the formatted record. Its default implementation formats the record and calls `check`, so a filter that implements only `check` keeps receiving every read and write formatted, exactly as before. `DefaultFilter` and `RecordKindFilter` implement it without formatting, `AllFilter` and `AnyFilter` forward it to their children in order, and `Box<T>` forwards it. Filters that wrap other filters should forward `check_raw` as well as `check`.
-- Added a `stream` benchmark (`cargo bench --bench stream`) comparing a bare read with reads through `LoggedStream` that are rejected or logged, by filters that decide in `check` or in `check_raw`.
+- Added `Event`, which `RecordFilter::check` now receives (see *Changed*). It offers the record exactly as it would be logged (`Event::record`), the raw bytes of a read or write exactly as they passed through the stream (`Event::bytes`, `None` for any other event) and the record kind (`Event::kind`). `Event::read`, `Event::write` and `Event::from(record)` build one, for example to test a filter.
+- Added a `custom-filters` example with two filters that keep the same records, one judging the formatted record and one judging the raw bytes, showing how many writes each had formatted.
+- Added a `stream` benchmark (`cargo bench --bench stream`) comparing a bare read with reads through `LoggedStream` that are rejected or logged, by filters that do or do not ask for the formatted record.
 
 ### Changed
 
-- Reads and writes are now formatted lazily: only when the filter asks for the formatted record or when the accepted record is logged. A read or write that the filter rejects without the formatted record, by its kind as `RecordKindFilter` does or on its raw bytes in `check_raw`, is no longer formatted at all and costs about as much as the IO itself. In `cargo bench --bench stream` on a laptop (Intel Core i5-8265U), rejecting an 8 KiB read by its kind now takes about 0.09 µs, against about 0.72 ms when the read is formatted first, as every read was before (more than 8,000 times faster); for a 64-byte read it is about 4 ns against about 6 µs. Logged reads and writes cost the same as before, because they still have to be formatted, and so do filters that implement only `check`, including custom filters written for earlier versions, which behave exactly as before. Two things can notice the difference: a formatter with side effects or internal state is no longer called for reads and writes rejected without formatting, and a read or write that the filter accepts without asking for the formatted record (for example with `DefaultFilter` or `RecordKindFilter`) is formatted, and so timestamped, just after the filter's check instead of just before it. To have every read and write formatted again, call `RawRecord::record` at the start of the filter's `check_raw`.
+- **Breaking:** `RecordFilter::check` now receives an `&Event<'_>` instead of a `&Record`, so that a filter can judge a read or write on its raw bytes as well as on the formatted record. To migrate a custom filter, change the signature and take the record from the event; the rest of the body stays as it is and takes the same decisions.
+
+  **Before:**
+  ```rust
+  fn check(&self, record: &Record) -> bool {
+      record.message.contains("ff:ff")
+  }
+  ```
+
+  **After:**
+  ```rust
+  fn check(&self, event: &Event<'_>) -> bool {
+      let record = event.record();
+      record.message.contains("ff:ff")
+  }
+  ```
+
+  Code that calls `check` directly, for example in tests, passes an `Event` built with `Event::read`, `Event::write` or `Event::from(record)`. An event built from a record carries no bytes, whatever its kind, so test a filter that judges bytes with `Event::read` and `Event::write`.
+- Reads and writes are now formatted lazily: only when a filter asks for the formatted record (`Event::record`) or when the accepted record is logged, and at most once. A read or write that the filter rejects without asking for it, by its kind as `RecordKindFilter` does or on its raw bytes, is no longer formatted at all and costs about as much as the IO itself. In `cargo bench --bench stream` on a laptop (Intel Core i5-8265U), rejecting an 8 KiB read by its kind now takes about 0.09 µs, against about 0.72 ms when the read is formatted first, as every read was before (about 8,000 times faster); for a 64-byte read it is about 4 ns against about 6 µs. Logged reads and writes cost the same as before, because they still have to be formatted, and so do filters that ask for the formatted record of every event, as migrated filters do. Two things can notice the difference: a formatter with side effects or internal state is no longer called for reads and writes rejected without formatting, and a read or write that the filter accepts without asking for the formatted record (for example with `DefaultFilter` or `RecordKindFilter`) is formatted, and so timestamped, just after the filter's check instead of just before it. To have every read and write formatted again, call `Event::record` at the start of the filter's `check`.
+
+### Fixed
+
+- `Box<dyn BufferFormatter>` and `Arc<T>` now forward `format_buffer` to the formatter they wrap. Before, a formatter that overrides `format_buffer` lost its override once boxed or put in an `Arc`, and its buffers were formatted by the default join of `format_byte` results instead. The provided formatters do not override `format_buffer`, so their output is unchanged.
 
 ### Documentation
 
-- Documented why `RecordFilter::check` receives the formatted record, the three ways to write a filter (formatted, raw and mixed), and what formatting costs, with benchmark numbers.
+- Documented what a filter can judge (the formatted record, the raw bytes or the kind), why the formatted record is the simplest to write against, and what formatting costs, with benchmark numbers.
 
 ## v0.8.0 (14.09.2026)
 
