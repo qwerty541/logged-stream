@@ -180,6 +180,7 @@ The snippets above are condensed. Full runnable versions live in the [`examples/
 -   [`file-logger.rs`](./examples/file-logger.rs) — writing records to a file instead of the console.
 -   [`shared-file-logger.rs`](./examples/shared-file-logger.rs) — several concurrent connections logging into one shared file, each tagged with its own prefix, and why append mode is what makes that safe.
 -   [`composite-filters.rs`](./examples/composite-filters.rs) — combining filters with `AllFilter` / `AnyFilter`.
+-   [`custom-filters.rs`](./examples/custom-filters.rs) — writing your own filter, judging either the formatted record or the raw bytes, and how many buffers each way has formatted.
 
 Full API documentation is on [docs.rs](https://docs.rs/logged-stream).
 
@@ -200,7 +201,7 @@ Every kind except `Open` is produced automatically. `Open` is a marker you recor
 
 ## Architecture
 
-`LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable parts. Each logged event flows through them in order:
+`LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable parts. Each logged event flows through them as:
 
 ```text
 event  ->  Formatter  ->  Filter  ->  Logger
@@ -210,7 +211,7 @@ The formatter runs lazily: a read or write is formatted only when the filter ask
 
 -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
--   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`. It judges the formatted, human-readable record, and for reads and writes it can decide on the raw bytes instead (`RecordFilter::check_raw`).
+-   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`, and sees each as an `Event`: the formatted, human-readable record, the raw bytes of a read or write, and the kind.
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
 All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
@@ -269,7 +270,7 @@ If none of the provided implementations matches your requirements, you can imple
 | Part | Trait | You must implement | Provided for you |
 | --- | --- | --- | --- |
 | Formatter | `BufferFormatter` | `get_separator`, `format_byte` | `format_buffer` — joins formatted bytes with your separator |
-| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter`; `check_raw` — override it to decide reads and writes on their raw bytes (`RawRecord`) instead of the formatted record |
+| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter` |
 | Logger | `Logger` | `log` | — |
 
 All three are `Send + 'static` and object-safe, so you can box them (`Box<dyn BufferFormatter>`) and choose an implementation at runtime. The fourth part needs no trait from this crate at all — anything implementing `std::io::Read`/`Write` or the `tokio` async equivalents can be wrapped, including your own types.
@@ -295,6 +296,8 @@ impl BufferFormatter for AsciiFormatter {
     }
 }
 ```
+
+A filter's `check` receives an `Event` and judges whichever part of it fits: the record exactly as it would be logged (`Event::record`), which is the simplest to write against, or the raw bytes of a read or write (`Event::bytes`), which spares the formatting of every read and write the filter rejects. [`custom-filters.rs`](./examples/custom-filters.rs) shows both.
 
 Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` and a `time`, so a custom logger can route by record kind, re-timestamp, or forward to any sink you like.
 
