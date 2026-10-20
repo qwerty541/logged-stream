@@ -115,6 +115,7 @@ cargo run --example tokio-tcp-stream-console-logger
 cargo run --example file-logger
 cargo run --example shared-file-logger
 cargo run --example composite-filters
+cargo run --example custom-filters
 ```
 
 Some examples use `env_logger`. You can control verbosity via `RUST_LOG`, for example:
