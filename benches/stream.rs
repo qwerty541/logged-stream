@@ -3,8 +3,8 @@
 //! Reads and writes are formatted lazily, so a read that the filter rejects without asking for the
 //! formatted record costs about as much as the read itself, while one that has to be formatted pays
 //! for the formatter (one allocation per byte with the provided formatters). The `_formatted` cases
-//! use filters that implement only `check`, which is also what every rejected read cost before
-//! formatting became lazy.
+//! use filters that ask for the formatted record (`Event::record`), which is also what every
+//! rejected read cost before formatting became lazy.
 //!
 //! Typical times on a laptop (Intel Core i5-8265U, stable Rust 1.98), per read:
 //!
@@ -26,11 +26,10 @@ use criterion::criterion_group;
 use criterion::criterion_main;
 use criterion::measurement::WallTime;
 use logged_stream::DefaultFilter;
+use logged_stream::Event;
 use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
 use logged_stream::MemoryStorageLogger;
-use logged_stream::RawRecord;
-use logged_stream::Record;
 use logged_stream::RecordFilter;
 use logged_stream::RecordKind;
 use logged_stream::RecordKindFilter;
@@ -53,20 +52,23 @@ impl Read for Repeat {
     }
 }
 
-/// Rejects reads by kind through `check`, so every read is formatted before it is rejected.
+/// Rejects reads by the kind of their formatted record, so every read is formatted before it is
+/// rejected.
 struct RejectReadsFormatted;
 
 impl RecordFilter for RejectReadsFormatted {
-    fn check(&self, record: &Record) -> bool {
-        record.kind != RecordKind::Read
+    fn check(&self, event: &Event<'_>) -> bool {
+        event.record().kind != RecordKind::Read
     }
 }
 
-/// Accepts every record through `check`, so every read is formatted for it.
+/// Accepts every event after asking for its formatted record, so every read is formatted in the
+/// filter and the logger reuses the record.
 struct AcceptFormatted;
 
 impl RecordFilter for AcceptFormatted {
-    fn check(&self, _record: &Record) -> bool {
+    fn check(&self, event: &Event<'_>) -> bool {
+        event.record();
         true
     }
 }
@@ -75,21 +77,20 @@ impl RecordFilter for AcceptFormatted {
 struct HandshakesFormatted;
 
 impl RecordFilter for HandshakesFormatted {
-    fn check(&self, record: &Record) -> bool {
-        record.message.starts_with("16")
+    fn check(&self, event: &Event<'_>) -> bool {
+        event.record().message.starts_with("16")
     }
 }
 
-/// The same decision as `HandshakesFormatted`, taken on the raw bytes in `check_raw`.
+/// The same decision as `HandshakesFormatted` for reads and writes, taken on the raw bytes.
 struct HandshakesRaw;
 
 impl RecordFilter for HandshakesRaw {
-    fn check(&self, record: &Record) -> bool {
-        record.message.starts_with("16")
-    }
-
-    fn check_raw(&self, record: &RawRecord<'_>) -> bool {
-        record.bytes().first() == Some(&0x16)
+    fn check(&self, event: &Event<'_>) -> bool {
+        match event.bytes() {
+            Some(bytes) => bytes.first() == Some(&0x16),
+            None => true,
+        }
     }
 }
 
@@ -148,8 +149,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| inner.read(black_box(&mut buf)).unwrap())
         });
 
-        // Rejected by kind: a filter that implements only `check` needs the formatted record, the
-        // provided `RecordKindFilter` decides in `check_raw` without it.
+        // Rejected by kind: judged on the formatted record, or by the provided `RecordKindFilter` on
+        // the kind alone.
         bench_stream(
             &mut group,
             "reject_by_kind_formatted",
