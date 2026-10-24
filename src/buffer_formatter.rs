@@ -11,6 +11,11 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// This trait allows to format bytes buffer using [`format_buffer`] method. It should be implemented for
 /// structures which are going to be used as formatting part inside [`LoggedStream`].
 ///
+/// [`LoggedStream`] calls [`format_buffer`] lazily, at most once per read or write, and only for the
+/// reads and writes that a filter asks to see formatted or that are logged. Do not rely on it running
+/// for every buffer; if your formatter has side effects that must, have the filter's
+/// [`RecordFilter::check`] call [`Event::record`] before it decides.
+///
 /// # Wrapping in an `Arc`
 ///
 /// `BufferFormatter` is implemented for `Box<dyn BufferFormatter>` unconditionally, but the blanket
@@ -22,6 +27,8 @@ const DEFAULT_SEPARATOR: &str = ":";
 ///
 /// [`format_buffer`]: BufferFormatter::format_buffer
 /// [`LoggedStream`]: crate::LoggedStream
+/// [`RecordFilter::check`]: crate::RecordFilter::check
+/// [`Event::record`]: crate::Event::record
 pub trait BufferFormatter: Send + 'static {
     /// This method returns a separator which will be inserted between bytes during [`format_buffer`] method call.
     /// It should be implemented manually.
@@ -52,6 +59,12 @@ impl BufferFormatter for Box<dyn BufferFormatter> {
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
     }
+
+    // Forwarded too, so that a formatter overriding it keeps its override once boxed.
+    #[inline]
+    fn format_buffer(&self, buffer: &[u8]) -> String {
+        (**self).format_buffer(buffer)
+    }
 }
 
 impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for Arc<T> {
@@ -63,6 +76,12 @@ impl<T: BufferFormatter + ?Sized + Sync> BufferFormatter for Arc<T> {
     #[inline]
     fn format_byte(&self, byte: &u8) -> String {
         (**self).format_byte(byte)
+    }
+
+    // Forwarded too, so that a formatter overriding it keeps its override in an `Arc`.
+    #[inline]
+    fn format_buffer(&self, buffer: &[u8]) -> String {
+        (**self).format_buffer(buffer)
     }
 }
 
@@ -752,6 +771,36 @@ mod tests {
         // Test Arc trait object
         let arc_trait: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some(" ")));
         assert_eq!(arc_trait.format_buffer(&[1, 2, 3]), "1 2 3");
+    }
+
+    /// Overrides `format_buffer`, so a test can tell whether the override or the default ran.
+    struct LengthFormatter;
+
+    impl BufferFormatter for LengthFormatter {
+        fn get_separator(&self) -> &str {
+            ":"
+        }
+
+        fn format_byte(&self, byte: &u8) -> String {
+            format!("{byte:02x}")
+        }
+
+        fn format_buffer(&self, buffer: &[u8]) -> String {
+            format!("{} bytes", buffer.len())
+        }
+    }
+
+    #[test]
+    fn test_box_and_arc_forward_format_buffer() {
+        // The default would join the formatted bytes into "01:02"; the override has to win through every wrapper.
+        let boxed: Box<dyn BufferFormatter> = Box::new(LengthFormatter);
+        assert_eq!(boxed.format_buffer(&[0x01, 0x02]), "2 bytes");
+
+        let arc = Arc::new(LengthFormatter);
+        assert_eq!(arc.format_buffer(&[0x01, 0x02]), "2 bytes");
+
+        let arc_trait: Arc<dyn BufferFormatter + Sync> = Arc::new(LengthFormatter);
+        assert_eq!(arc_trait.format_buffer(&[0x01, 0x02]), "2 bytes");
     }
 
     #[test]

@@ -3,22 +3,28 @@ use criterion::criterion_group;
 use criterion::criterion_main;
 use logged_stream::AllFilter;
 use logged_stream::AnyFilter;
+use logged_stream::Event;
 use logged_stream::Record;
 use logged_stream::RecordFilter;
 use logged_stream::RecordKind;
 use logged_stream::RecordKindFilter;
+
+/// An event carrying a record built from `kind` and `message`.
+fn event(kind: RecordKind, message: &str) -> Event<'static> {
+    Event::from(Record::new(kind, String::from(message)))
+}
 
 fn criterion_benchmark(c: &mut Criterion) {
     let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read]);
 
     c.bench_function("RecordKindFilter", move |b| {
         b.iter(|| {
-            record_kind_filter.check(&Record::new(RecordKind::Open, String::from("open")));
-            record_kind_filter.check(&Record::new(RecordKind::Read, String::from("read")));
-            record_kind_filter.check(&Record::new(RecordKind::Write, String::from("write")));
-            record_kind_filter.check(&Record::new(RecordKind::Error, String::from("error")));
-            record_kind_filter.check(&Record::new(RecordKind::Shutdown, String::from("shutdown")));
-            record_kind_filter.check(&Record::new(RecordKind::Drop, String::from("drop")));
+            record_kind_filter.check(&event(RecordKind::Open, "open"));
+            record_kind_filter.check(&event(RecordKind::Read, "read"));
+            record_kind_filter.check(&event(RecordKind::Write, "write"));
+            record_kind_filter.check(&event(RecordKind::Error, "error"));
+            record_kind_filter.check(&event(RecordKind::Shutdown, "shutdown"));
+            record_kind_filter.check(&event(RecordKind::Drop, "drop"));
         })
     });
 
@@ -35,12 +41,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("AllFilter", move |b| {
         b.iter(|| {
-            all_filter.check(&Record::new(RecordKind::Open, String::from("open")));
-            all_filter.check(&Record::new(RecordKind::Read, String::from("read")));
-            all_filter.check(&Record::new(RecordKind::Write, String::from("write")));
-            all_filter.check(&Record::new(RecordKind::Error, String::from("error")));
-            all_filter.check(&Record::new(RecordKind::Shutdown, String::from("shutdown")));
-            all_filter.check(&Record::new(RecordKind::Drop, String::from("drop")));
+            all_filter.check(&event(RecordKind::Open, "open"));
+            all_filter.check(&event(RecordKind::Read, "read"));
+            all_filter.check(&event(RecordKind::Write, "write"));
+            all_filter.check(&event(RecordKind::Error, "error"));
+            all_filter.check(&event(RecordKind::Shutdown, "shutdown"));
+            all_filter.check(&event(RecordKind::Drop, "drop"));
         })
     });
 
@@ -51,12 +57,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("AnyFilter", move |b| {
         b.iter(|| {
-            any_filter.check(&Record::new(RecordKind::Open, String::from("open")));
-            any_filter.check(&Record::new(RecordKind::Read, String::from("read")));
-            any_filter.check(&Record::new(RecordKind::Write, String::from("write")));
-            any_filter.check(&Record::new(RecordKind::Error, String::from("error")));
-            any_filter.check(&Record::new(RecordKind::Shutdown, String::from("shutdown")));
-            any_filter.check(&Record::new(RecordKind::Drop, String::from("drop")));
+            any_filter.check(&event(RecordKind::Open, "open"));
+            any_filter.check(&event(RecordKind::Read, "read"));
+            any_filter.check(&event(RecordKind::Write, "write"));
+            any_filter.check(&event(RecordKind::Error, "error"));
+            any_filter.check(&event(RecordKind::Shutdown, "shutdown"));
+            any_filter.check(&event(RecordKind::Drop, "drop"));
         })
     });
 
@@ -67,12 +73,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("NestedCompositeFilter", move |b| {
         b.iter(|| {
-            nested_filter.check(&Record::new(RecordKind::Open, String::from("open")));
-            nested_filter.check(&Record::new(RecordKind::Read, String::from("read")));
-            nested_filter.check(&Record::new(RecordKind::Write, String::from("write")));
-            nested_filter.check(&Record::new(RecordKind::Error, String::from("error")));
-            nested_filter.check(&Record::new(RecordKind::Shutdown, String::from("shutdown")));
-            nested_filter.check(&Record::new(RecordKind::Drop, String::from("drop")));
+            nested_filter.check(&event(RecordKind::Open, "open"));
+            nested_filter.check(&event(RecordKind::Read, "read"));
+            nested_filter.check(&event(RecordKind::Write, "write"));
+            nested_filter.check(&event(RecordKind::Error, "error"));
+            nested_filter.check(&event(RecordKind::Shutdown, "shutdown"));
+            nested_filter.check(&event(RecordKind::Drop, "drop"));
         })
     });
 }
