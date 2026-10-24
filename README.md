@@ -55,9 +55,10 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 -   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
 -   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
 -   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in, or implement the trait yourself if none fits your needs.
+-   **Cheap rejection.** Reads and writes are formatted lazily. A read that the filter rejects by its kind or its raw bytes, as `RecordKindFilter` does, costs about as much as the read itself: about 0.09 µs instead of about 0.72 ms for 8 KiB (`cargo bench --bench stream` on an Intel Core i5-8265U laptop). Filters that judge the formatted text, and records that a logger discards (for example `ConsoleLogger` below the active log level), still pay for formatting.
 -   **Small and safe.** A small dependency set and no `unsafe` code.
 
-`LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
+`LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`, with the formatter running lazily; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
 
 ## Usage
 
@@ -179,6 +180,7 @@ The snippets above are condensed. Full runnable versions live in the [`examples/
 -   [`file-logger.rs`](./examples/file-logger.rs) — writing records to a file instead of the console.
 -   [`shared-file-logger.rs`](./examples/shared-file-logger.rs) — several concurrent connections logging into one shared file, each tagged with its own prefix, and why append mode is what makes that safe.
 -   [`composite-filters.rs`](./examples/composite-filters.rs) — combining filters with `AllFilter` / `AnyFilter`.
+-   [`custom-filters.rs`](./examples/custom-filters.rs) — writing your own filter, judging either the formatted record or the raw bytes, and how many buffers each way has formatted.
 
 Full API documentation is on [docs.rs](https://docs.rs/logged-stream).
 
@@ -199,15 +201,17 @@ Every kind except `Open` is produced automatically. `Open` is a marker you recor
 
 ## Architecture
 
-`LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable parts. Each logged event flows through them in order:
+`LoggedStream<S, Formatter, Filter, L>` is generic over four independent, pluggable parts. Each logged event flows through them as:
 
 ```text
 event  ->  Formatter  ->  Filter  ->  Logger
 ```
 
+The formatter runs lazily: a read or write is formatted only when the filter asks for the formatted record or when the record is logged, so a read or write rejected without it costs almost nothing.
+
 -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
--   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`.
+-   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`, and sees each as an `Event`: the formatted, human-readable record, the raw bytes of a read or write, and the kind.
 -   **Logger (`Logger`).** The sink that consumes accepted records.
 
 All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
@@ -292,6 +296,8 @@ impl BufferFormatter for AsciiFormatter {
     }
 }
 ```
+
+A filter's `check` receives an `Event` and judges whichever part of it fits: the record exactly as it would be logged (`Event::record`), which is the simplest to write against, or the raw bytes of a read or write (`Event::bytes`), which spares the formatting of every read and write the filter rejects. [`custom-filters.rs`](./examples/custom-filters.rs) shows both.
 
 Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` and a `time`, so a custom logger can route by record kind, re-timestamp, or forward to any sink you like.
 

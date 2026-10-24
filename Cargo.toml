@@ -23,12 +23,12 @@ include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE-*", "README.md"]
 chrono = "0.4.45"
 itertools = "0.15.0"
 log = "0.4.34"
-tokio = { version = "1.53.2", features = ["io-util"], default-features = false }
+tokio = { version = "1.53.3", features = ["io-util"], default-features = false }
 
 [dev-dependencies]
 criterion = "0.8.2"
 env_logger = "0.11.11"
-tokio = { version = "1.53.2", features = [
+tokio = { version = "1.53.3", features = [
     "macros",
     "net",
     "rt-multi-thread"
@@ -54,6 +54,10 @@ path = "examples/shared-file-logger.rs"
 name = "composite-filters"
 path = "examples/composite-filters.rs"
 
+[[example]]
+name = "custom-filters"
+path = "examples/custom-filters.rs"
+
 [[bench]]
 name = "buffer-formatter"
 path = "benches/buffer-formatter.rs"
@@ -62,4 +66,9 @@ harness = false
 [[bench]]
 name = "filter"
 path = "benches/filter.rs"
+harness = false
+
+[[bench]]
+name = "stream"
+path = "benches/stream.rs"
 harness = false

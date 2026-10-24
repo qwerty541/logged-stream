@@ -115,6 +115,7 @@ cargo run --example tokio-tcp-stream-console-logger
 cargo run --example file-logger
 cargo run --example shared-file-logger
 cargo run --example composite-filters
+cargo run --example custom-filters
 ```
 
 Some examples use `env_logger`. You can control verbosity via `RUST_LOG`, for example:
@@ -128,7 +129,7 @@ RUST_LOG=debug cargo run --example tcp-stream-console-logger
 This project uses [Criterion](https://github.com/bheisler/criterion.rs) for benchmarks.
 
 - Run all benches: `cargo bench`
-- Run a specific bench: `cargo bench --bench buffer-formatter`
+- Run a specific bench: `cargo bench --bench buffer-formatter` (the others are `filter` and `stream`)
 
 Tips for more stable numbers:
 

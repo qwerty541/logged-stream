@@ -3,6 +3,7 @@ use crate::MemoryStorageLogger;
 use crate::RecordFilter;
 use crate::buffer_formatter::BufferFormatter;
 use crate::logger::Logger;
+use crate::record::Event;
 use crate::record::Record;
 use crate::record::RecordKind;
 use std::collections;
@@ -25,7 +26,9 @@ use tokio::io as tokio_io;
 /// # Architecture
 ///
 /// [`LoggedStream`] is generic over four independent, pluggable parts. Each logged event flows
-/// through them in order: `event -> Formatter -> Filter -> Logger`.
+/// through them as `event -> Formatter -> Filter -> Logger`. The formatter runs lazily: a
+/// read or write is formatted only when the filter asks for the formatted record or when the
+/// record is logged, so a read or write rejected without it costs almost nothing.
 ///
 /// -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing [`Read`] /
 ///     [`Write`] (or the [`tokio`] async equivalents) works — a socket, a file, an in-memory buffer,
@@ -34,7 +37,8 @@ use tokio::io as tokio_io;
 /// -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 ///     strings you see in the log.
 /// -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
-///     including shutdown and drop.
+///     including shutdown and drop, and sees each as an [`Event`]: the formatted, human-readable
+///     record, the raw bytes of a read or write, and the kind.
 /// -   **Logger ([`Logger`]).** The sink that consumes accepted records.
 ///
 /// All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
@@ -107,6 +111,7 @@ use tokio::io as tokio_io;
 /// [`DecimalFormatter`]: crate::DecimalFormatter
 /// [`BinaryFormatter`]: crate::BinaryFormatter
 /// [`OctalFormatter`]: crate::OctalFormatter
+/// [`Event`]: crate::Event
 /// [`DefaultFilter`]: crate::DefaultFilter
 /// [`RecordKindFilter`]: crate::RecordKindFilter
 /// [`AllFilter`]: crate::AllFilter
@@ -156,14 +161,33 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
         self.emit(Record::new(RecordKind::Open, message.into()));
     }
 
-    /// Route a record through the filter, logging it only if the filter accepts it.
+    /// Route a record without bytes — an error, shutdown, drop or manual `Open` marker — through
+    /// the filter as an [`Event`], logging it only if the filter accepts it.
     ///
-    /// Every record — reads, writes, errors, shutdowns, drops and manual `Open` markers — is
-    /// emitted through this single method, so the filter is applied consistently to all of them.
+    /// Reads and writes go through [`emit_bytes`](Self::emit_bytes) instead. Between them, the two
+    /// methods route every record, so the filter is applied consistently to all of them.
     #[inline]
     fn emit(&mut self, record: Record) {
-        if self.filter.check(&record) {
-            self.logger.log(record);
+        let event = Event::from(record);
+        if self.filter.check(&event) {
+            self.logger.log(event.into_record());
+        }
+    }
+
+    /// Route the bytes of a read or write through the filter as an [`Event`], logging the
+    /// formatted record only if the filter accepts it.
+    ///
+    /// The bytes are formatted at most once, and only when needed: when a filter asks for the
+    /// formatted record ([`Event::record`]), or when the accepted record is handed to the logger.
+    /// A read or write rejected without anyone asking is never formatted.
+    #[inline]
+    fn emit_bytes(&mut self, kind: RecordKind, bytes: &[u8])
+    where
+        Formatter: BufferFormatter,
+    {
+        let event = Event::with_bytes(kind, bytes, &self.formatter);
+        if self.filter.check(&event) {
+            self.logger.log(event.into_record());
         }
     }
 }
@@ -224,13 +248,7 @@ impl<
         let result = self.inner_stream.read(buf);
 
         match &result {
-            Ok(length) => {
-                let record = Record::new(
-                    RecordKind::Read,
-                    self.formatter.format_buffer(&buf[0..*length]),
-                );
-                self.emit(record);
-            }
+            Ok(length) => self.emit_bytes(RecordKind::Read, &buf[0..*length]),
             Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {}
             Err(e) => {
                 self.emit(Record::new(
@@ -264,15 +282,10 @@ impl<
 
         match &result {
             Poll::Ready(Ok(())) if diff == 0 => {}
-            Poll::Ready(Ok(())) => {
-                let record = Record::new(
-                    RecordKind::Read,
-                    mut_self
-                        .formatter
-                        .format_buffer(&(buf.filled())[length_before_read..length_after_read]),
-                );
-                mut_self.emit(record);
-            }
+            Poll::Ready(Ok(())) => mut_self.emit_bytes(
+                RecordKind::Read,
+                &(buf.filled())[length_before_read..length_after_read],
+            ),
             Poll::Ready(Err(e)) => {
                 mut_self.emit(Record::new(
                     RecordKind::Error,
@@ -297,13 +310,7 @@ impl<
         let result = self.inner_stream.write(buf);
 
         match &result {
-            Ok(length) => {
-                let record = Record::new(
-                    RecordKind::Write,
-                    self.formatter.format_buffer(&buf[0..*length]),
-                );
-                self.emit(record);
-            }
+            Ok(length) => self.emit_bytes(RecordKind::Write, &buf[0..*length]),
             Err(e)
                 if matches!(
                     e.kind(),
@@ -341,13 +348,7 @@ impl<
         let result = Pin::new(&mut mut_self.inner_stream).poll_write(cx, buf);
 
         match &result {
-            Poll::Ready(Ok(length)) => {
-                let record = Record::new(
-                    RecordKind::Write,
-                    mut_self.formatter.format_buffer(&buf[0..*length]),
-                );
-                mut_self.emit(record);
-            }
+            Poll::Ready(Ok(length)) => mut_self.emit_bytes(RecordKind::Write, &buf[0..*length]),
             Poll::Ready(Err(e)) => {
                 mut_self.emit(Record::new(
                     RecordKind::Error,
@@ -387,12 +388,17 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
 
 #[cfg(test)]
 mod tests {
+    use crate::AllFilter;
+    use crate::BufferFormatter;
     use crate::ChannelLogger;
     use crate::DecimalFormatter;
     use crate::DefaultFilter;
+    use crate::Event;
     use crate::LoggedStream;
     use crate::LowercaseHexadecimalFormatter;
     use crate::MemoryStorageLogger;
+    use crate::Record;
+    use crate::RecordFilter;
     use crate::RecordKind;
     use crate::RecordKindFilter;
     use crate::UppercaseHexadecimalFormatter;
@@ -403,6 +409,10 @@ mod tests {
     use std::io::Write;
     use std::pin::Pin;
     use std::rc::Rc;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
     use std::task::Context;
     use std::task::Poll;
 
@@ -478,6 +488,127 @@ mod tests {
 
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
+        }
+    }
+
+    /// Formats like [`LowercaseHexadecimalFormatter`] and counts its `format_buffer` calls. The
+    /// counter is shared, so a test can read it after the formatter has moved into the stream.
+    struct CountingFormatter(Arc<AtomicUsize>);
+
+    impl BufferFormatter for CountingFormatter {
+        fn get_separator(&self) -> &str {
+            ":"
+        }
+
+        fn format_byte(&self, byte: &u8) -> String {
+            format!("{byte:02x}")
+        }
+
+        fn format_buffer(&self, buffer: &[u8]) -> String {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            LowercaseHexadecimalFormatter::new_default().format_buffer(buffer)
+        }
+    }
+
+    /// Keeps every event, and remembers the formatted record of each.
+    struct SeenRecords(Arc<Mutex<Vec<Record>>>);
+
+    impl RecordFilter for SeenRecords {
+        fn check(&self, event: &Event<'_>) -> bool {
+            self.0.lock().unwrap().push(event.record().clone());
+            true
+        }
+    }
+
+    /// Keeps every event, and remembers the kind of each and whether it carried bytes.
+    struct SeenKinds(Arc<Mutex<Vec<(RecordKind, bool)>>>);
+
+    impl RecordFilter for SeenKinds {
+        fn check(&self, event: &Event<'_>) -> bool {
+            self.0
+                .lock()
+                .unwrap()
+                .push((event.kind(), event.bytes().is_some()));
+            true
+        }
+    }
+
+    /// Judges reads and writes on their raw bytes, keeping those that start with a TLS handshake
+    /// byte (0x16), and remembers the bytes it was shown. Of the events without bytes it keeps only
+    /// drops.
+    struct TlsHandshakes(Arc<Mutex<Vec<Vec<u8>>>>);
+
+    impl RecordFilter for TlsHandshakes {
+        fn check(&self, event: &Event<'_>) -> bool {
+            match event.bytes() {
+                Some(bytes) => {
+                    self.0.lock().unwrap().push(bytes.to_vec());
+                    bytes.first() == Some(&0x16)
+                }
+                None => event.kind() == RecordKind::Drop,
+            }
+        }
+    }
+
+    /// Asks for the formatted record of every event, keeps the event, and counts its calls.
+    struct CountingFilter(Arc<AtomicUsize>);
+
+    impl RecordFilter for CountingFilter {
+        fn check(&self, event: &Event<'_>) -> bool {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            event.record();
+            true
+        }
+    }
+
+    /// A synchronous writer that takes at most one byte per `write` call.
+    struct OneByteWriter;
+
+    impl Write for OneByteWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            Ok(buf.len().min(1))
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// An asynchronous reader that adds at most one byte of its payload per `poll_read`.
+    struct OneByteAsyncReader(Vec<u8>);
+
+    impl tokio::io::AsyncRead for OneByteAsyncReader {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            if !self.0.is_empty() && buf.remaining() > 0 {
+                let byte = self.0.remove(0);
+                buf.put_slice(&[byte]);
+            }
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    /// An asynchronous writer that takes at most one byte per `poll_write`.
+    struct OneByteAsyncWriter;
+
+    impl tokio::io::AsyncWrite for OneByteAsyncWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Ok(buf.len().min(1)))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
         }
     }
 
@@ -640,6 +771,388 @@ mod tests {
         stream.write_all(&[0x01, 0x02]).unwrap();
 
         assert!(stream.get_log_records().is_empty());
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Formatted and raw filtering (Event::record / Event::bytes)
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_read_rejected_by_kind_is_not_formatted() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let mut stream = LoggedStream::new(
+            Cursor::new(vec![0x01, 0x02]),
+            CountingFormatter(Arc::clone(&format_calls)),
+            RecordKindFilter::new(&[RecordKind::Write]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).unwrap();
+
+        assert_eq!(buf, [0x01, 0x02]);
+        assert!(stream.get_log_records().is_empty());
+        assert_eq!(format_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_write_rejected_by_kind_is_not_formatted() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let sink = Rc::new(RefCell::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            RecordingWriter(Rc::clone(&sink)),
+            CountingFormatter(Arc::clone(&format_calls)),
+            RecordKindFilter::new(&[RecordKind::Read]),
+            MemoryStorageLogger::new(16),
+        );
+
+        stream.write_all(&[0x01, 0x02]).unwrap();
+
+        assert_eq!(*sink.borrow(), vec![0x01, 0x02]);
+        assert!(stream.get_log_records().is_empty());
+        assert_eq!(format_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn test_async_read_and_write_rejected_by_kind_are_not_formatted() {
+        use tokio::io::AsyncReadExt;
+        use tokio::io::AsyncWriteExt;
+
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let (client, mut server) = tokio::io::duplex(64);
+        server.write_all(&[0xaa, 0xbb]).await.unwrap();
+
+        // The filter `logged_tcp_proxy` puts on its server side: lifecycle records only.
+        let mut stream = LoggedStream::new(
+            client,
+            CountingFormatter(Arc::clone(&format_calls)),
+            RecordKindFilter::new(&[RecordKind::Drop, RecordKind::Error, RecordKind::Shutdown]),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).await.unwrap();
+        stream.write_all(&[0x01, 0x02]).await.unwrap();
+
+        assert_eq!(buf, [0xaa, 0xbb]);
+        assert!(stream.get_log_records().is_empty());
+        assert_eq!(format_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_formatted_filter_sees_every_read_and_write_formatted() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            Cursor::new(vec![0x0a, 0xff, 0x00]),
+            CountingFormatter(Arc::clone(&format_calls)),
+            SeenRecords(Arc::clone(&seen)),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).unwrap();
+        stream.write_all(&[0x01]).unwrap();
+
+        // A filter that asks for the record is shown every read and write formatted, once per IO
+        // call, and the logger receives the very records it was shown.
+        let seen = seen.lock().unwrap().clone();
+        let shown = seen
+            .iter()
+            .map(|record| (record.kind, record.message.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            shown,
+            vec![(RecordKind::Read, "0a:ff"), (RecordKind::Write, "01")]
+        );
+        assert_eq!(format_calls.load(Ordering::SeqCst), 2);
+        assert_eq!(stream.get_log_records(), seen);
+    }
+
+    #[test]
+    fn test_raw_filter_formats_only_the_reads_it_accepts() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            Cursor::new(vec![0x16, 0x03, 0x17, 0x03]),
+            CountingFormatter(Arc::clone(&format_calls)),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).unwrap();
+        stream.read_exact(&mut buf).unwrap();
+
+        // The filter saw both reads raw and kept one; only the kept one was formatted.
+        assert_eq!(
+            *shown.lock().unwrap(),
+            vec![vec![0x16, 0x03], vec![0x17, 0x03]]
+        );
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Read);
+        assert_eq!(records[0].message, "16:03");
+        assert_eq!(format_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn test_async_raw_filter_sees_exactly_the_bytes_read_and_written() {
+        use tokio::io::AsyncReadExt;
+        use tokio::io::AsyncWriteExt;
+
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let (client, mut server) = tokio::io::duplex(64);
+        server.write_all(&[0x16, 0x01]).await.unwrap();
+
+        let mut stream = LoggedStream::new(
+            client,
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).await.unwrap();
+        stream.write_all(&[0x17, 0x02, 0x03]).await.unwrap();
+
+        assert_eq!(
+            *shown.lock().unwrap(),
+            vec![vec![0x16, 0x01], vec![0x17, 0x02, 0x03]]
+        );
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].message, "16:01");
+    }
+
+    #[test]
+    fn test_raw_filter_judges_events_without_bytes_too() {
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            Cursor::new(vec![0x17, 0x03]),
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            ChannelLogger::new(),
+        );
+        let receiver = stream.take_receiver_unchecked();
+
+        let mut buf = [0u8; 2];
+        stream.read_exact(&mut buf).unwrap();
+        stream.log_open("rejected, it carries no bytes");
+        drop(stream);
+
+        // The read was judged on its bytes and rejected; the open marker and the drop carry no
+        // bytes, and of those the filter keeps only drops.
+        let records = receiver.try_iter().collect::<Vec<_>>();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].kind, RecordKind::Drop);
+        assert_eq!(shown.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_only_reads_and_writes_carry_bytes() {
+        use tokio::io::AsyncReadExt;
+        use tokio::io::AsyncWriteExt;
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (client, mut server) = tokio::io::duplex(64);
+        server.write_all(&[0x01]).await.unwrap();
+
+        let mut stream = LoggedStream::new(
+            client,
+            LowercaseHexadecimalFormatter::new_default(),
+            SeenKinds(Arc::clone(&seen)),
+            MemoryStorageLogger::new(16),
+        );
+        stream.log_open("open");
+        let mut buf = [0u8; 1];
+        stream.read_exact(&mut buf).await.unwrap();
+        stream.write_all(&[0x02]).await.unwrap();
+        stream.shutdown().await.unwrap();
+        drop(stream);
+
+        let mut failing = LoggedStream::new(
+            ErrAsyncReader(ErrorKind::Other),
+            LowercaseHexadecimalFormatter::new_default(),
+            SeenKinds(Arc::clone(&seen)),
+            MemoryStorageLogger::new(16),
+        );
+        let _ = failing.read(&mut buf).await;
+        drop(failing);
+
+        assert_eq!(
+            *seen.lock().unwrap(),
+            vec![
+                (RecordKind::Open, false),
+                (RecordKind::Read, true),
+                (RecordKind::Write, true),
+                (RecordKind::Shutdown, false),
+                (RecordKind::Drop, false),
+                (RecordKind::Error, false),
+                (RecordKind::Drop, false),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_formatting_child_before_kind_filter_formats_every_write() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let check_calls = Arc::new(AtomicUsize::new(0));
+        let mut stream = LoggedStream::new(
+            Cursor::new(Vec::<u8>::new()),
+            CountingFormatter(Arc::clone(&format_calls)),
+            AllFilter::new(vec![
+                Box::new(CountingFilter(Arc::clone(&check_calls))),
+                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            ]),
+            MemoryStorageLogger::new(16),
+        );
+
+        stream.write_all(&[0x01]).unwrap();
+        stream.write_all(&[0x02]).unwrap();
+
+        // The child that asks for the formatted record comes first, so it is shown both writes and
+        // they are formatted for it. Asserted before the drop, which the child would see too.
+        assert!(stream.get_log_records().is_empty());
+        assert_eq!(check_calls.load(Ordering::SeqCst), 2);
+        assert_eq!(format_calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_kind_filter_before_formatting_child_skips_formatting() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let check_calls = Arc::new(AtomicUsize::new(0));
+        let mut stream = LoggedStream::new(
+            Cursor::new(Vec::<u8>::new()),
+            CountingFormatter(Arc::clone(&format_calls)),
+            AllFilter::new(vec![
+                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+                Box::new(CountingFilter(Arc::clone(&check_calls))),
+            ]),
+            MemoryStorageLogger::new(16),
+        );
+
+        stream.write_all(&[0x01]).unwrap();
+        stream.write_all(&[0x02]).unwrap();
+
+        // The kind filter settles both writes first, so the child is skipped and nothing is
+        // formatted.
+        assert!(stream.get_log_records().is_empty());
+        assert_eq!(check_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(format_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_raw_filter_sees_only_the_bytes_moved() {
+        // A short read: two bytes into an eight-byte buffer.
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut reader = LoggedStream::new(
+            Cursor::new(vec![0x16, 0x01]),
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+        let mut buf = [0u8; 8];
+        assert_eq!(reader.read(&mut buf).unwrap(), 2);
+        assert_eq!(*shown.lock().unwrap(), vec![vec![0x16, 0x01]]);
+        assert_eq!(reader.get_log_records()[0].message, "16:01");
+
+        // Partial writes: the inner writer takes one byte per call.
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut writer = LoggedStream::new(
+            OneByteWriter,
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+        writer.write_all(&[0x16, 0x17]).unwrap();
+        assert_eq!(*shown.lock().unwrap(), vec![vec![0x16], vec![0x17]]);
+        let records = writer.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].message, "16");
+    }
+
+    #[tokio::test]
+    async fn test_async_raw_filter_sees_each_partial_read_and_write() {
+        use tokio::io::AsyncReadExt;
+        use tokio::io::AsyncWriteExt;
+
+        // The inner reader adds one byte per poll, so the second poll starts with one byte already
+        // in the buffer; the filter must be shown only the byte that poll added.
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut reader = LoggedStream::new(
+            OneByteAsyncReader(vec![0x16, 0x17]),
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+        let mut buf = [0u8; 2];
+        reader.read_exact(&mut buf).await.unwrap();
+        assert_eq!(buf, [0x16, 0x17]);
+        assert_eq!(*shown.lock().unwrap(), vec![vec![0x16], vec![0x17]]);
+        let records = reader.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].message, "16");
+
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut writer = LoggedStream::new(
+            OneByteAsyncWriter,
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+        writer.write_all(&[0x16, 0x17]).await.unwrap();
+        assert_eq!(*shown.lock().unwrap(), vec![vec![0x16], vec![0x17]]);
+    }
+
+    #[test]
+    fn test_raw_filter_sees_empty_read_at_end_of_stream() {
+        let format_calls = Arc::new(AtomicUsize::new(0));
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            Cursor::new(vec![0x16]),
+            CountingFormatter(Arc::clone(&format_calls)),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut data = Vec::new();
+        stream.read_to_end(&mut data).unwrap();
+
+        // The end of the stream is a read of zero bytes: the filter is shown an empty slice and
+        // rejects it, so only the first read is formatted and logged.
+        assert_eq!(data, vec![0x16]);
+        let shown = shown.lock().unwrap().clone();
+        assert_eq!(shown.first(), Some(&vec![0x16]));
+        assert_eq!(shown.last(), Some(&Vec::new()));
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].message, "16");
+        assert_eq!(format_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn test_async_read_that_adds_nothing_is_not_passed_to_the_filter() {
+        use tokio::io::AsyncReadExt;
+
+        let shown = Arc::new(Mutex::new(Vec::new()));
+        let mut stream = LoggedStream::new(
+            OneByteAsyncReader(vec![0x16]),
+            LowercaseHexadecimalFormatter::new_default(),
+            TlsHandshakes(Arc::clone(&shown)),
+            MemoryStorageLogger::new(16),
+        );
+
+        let mut data = Vec::new();
+        stream.read_to_end(&mut data).await.unwrap();
+
+        // The inner reader ends the stream with a poll that adds nothing. Unlike a synchronous read
+        // of zero bytes, that poll is not an event, so the filter is shown only the byte read.
+        assert_eq!(data, vec![0x16]);
+        assert_eq!(*shown.lock().unwrap(), vec![vec![0x16]]);
+        let records = stream.get_log_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].message, "16");
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
