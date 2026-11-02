@@ -1,5 +1,5 @@
 use crate::Event;
-use crate::RecordKind;
+use crate::EventKind;
 use itertools::Itertools;
 use std::fmt;
 
@@ -7,9 +7,9 @@ use std::fmt;
 // Trait
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Trait for filtering log records in [`LoggedStream`].
+/// Trait for filtering events in [`LoggedStream`].
 ///
-/// This trait allows filtering log records ([`Record`]) using the [`check`] method, which returns a [`bool`] value.
+/// This trait allows filtering events ([`Event`]) using the [`check`] method, which returns a [`bool`] value.
 /// It should be implemented for structures intended to be used as the filtering component within [`LoggedStream`].
 /// [`LoggedStream`] calls [`check`] for every event (every read, write, error, shutdown, drop and `Open` marker)
 /// and logs the event's record only if it returns `true`.
@@ -25,7 +25,7 @@ use std::fmt;
 ///     a filter.
 /// -   [`Event::bytes`]: the raw bytes of a read or write, exactly as they passed through the stream, and `None` for
 ///     any other event. Use them for what the formatted text obscures, such as a binary protocol header.
-/// -   [`Event::kind`]: the [`RecordKind`].
+/// -   [`Event::kind`]: the [`EventKind`].
 ///
 /// The views differ in cost. [`LoggedStream`] formats a read or write only when a filter asks for its record or when
 /// the record is logged, and at most once: the filters and the logger share one record. Formatting is by far the
@@ -35,7 +35,7 @@ use std::fmt;
 /// 0.09 µs when it was not, about the cost of the read itself; for a 64-byte read, about 6 µs and 4 ns. A filter
 /// that rejects most reads and writes of a busy stream should therefore decide on [`Event::kind`] or
 /// [`Event::bytes`] where it can, and ask for [`Event::record`] only for the rest. [`DefaultFilter`] and
-/// [`RecordKindFilter`] never ask for it.
+/// [`EventKindFilter`] never ask for it.
 ///
 /// A filter that asks for [`Event::record`] for every event has every read and write formatted, which is what a
 /// formatter with side effects that must see every buffer needs.
@@ -48,21 +48,21 @@ use std::fmt;
 ///
 /// ```
 /// use logged_stream::Event;
+/// use logged_stream::EventFilter;
+/// use logged_stream::EventKind;
 /// use logged_stream::LoggedStream;
 /// use logged_stream::LowercaseHexadecimalFormatter;
 /// use logged_stream::MemoryStorageLogger;
-/// use logged_stream::RecordFilter;
-/// use logged_stream::RecordKind;
 /// use std::io::Cursor;
 /// use std::io::Read;
 ///
 /// struct TlsHandshakes;
 ///
-/// impl RecordFilter for TlsHandshakes {
+/// impl EventFilter for TlsHandshakes {
 ///     fn check(&self, event: &Event<'_>) -> bool {
 ///         let record = event.record();
 ///         match record.kind {
-///             RecordKind::Read | RecordKind::Write => record.message.starts_with("16"),
+///             EventKind::Read | EventKind::Write => record.message.starts_with("16"),
 ///             _ => true,
 ///         }
 ///     }
@@ -70,7 +70,7 @@ use std::fmt;
 ///
 /// struct TlsHandshakesRaw;
 ///
-/// impl RecordFilter for TlsHandshakesRaw {
+/// impl EventFilter for TlsHandshakesRaw {
 ///     fn check(&self, event: &Event<'_>) -> bool {
 ///         match event.bytes() {
 ///             Some(bytes) => bytes.first() == Some(&0x16),
@@ -79,7 +79,7 @@ use std::fmt;
 ///     }
 /// }
 ///
-/// let filters: [Box<dyn RecordFilter>; 2] = [Box::new(TlsHandshakes), Box::new(TlsHandshakesRaw)];
+/// let filters: [Box<dyn EventFilter>; 2] = [Box::new(TlsHandshakes), Box::new(TlsHandshakesRaw)];
 /// for filter in filters {
 ///     let mut stream = LoggedStream::new(
 ///         Cursor::new(vec![0x16, 0x03, 0x01, 0x17, 0x03]),
@@ -108,15 +108,15 @@ use std::fmt;
 /// A filter that wraps or combines others should hand them the [`Event`] it was given, as `Box`, [`AllFilter`] and
 /// [`AnyFilter`] do, so that a read or write is formatted at most once however many of them ask for its record.
 ///
-/// [`check`]: RecordFilter::check
+/// [`check`]: EventFilter::check
 /// [`LoggedStream`]: crate::LoggedStream
 /// [`Record`]: crate::Record
 /// [`custom-filters`]: https://github.com/qwerty541/logged-stream/blob/master/examples/custom-filters.rs
-pub trait RecordFilter: Send + 'static {
+pub trait EventFilter: Send + 'static {
     /// This method returns [`bool`] value depending on if received event ([`Event`]) should be processed by logging
     /// part inside [`LoggedStream`].
     ///
-    /// [`LoggedStream`] calls it for every event, of every [`RecordKind`]. The [trait documentation](RecordFilter)
+    /// [`LoggedStream`] calls it for every event, of every [`EventKind`]. The [trait documentation](EventFilter)
     /// describes what an [`Event`] offers and what each of its views costs.
     ///
     /// [`LoggedStream`]: crate::LoggedStream
@@ -131,7 +131,7 @@ pub trait RecordFilter: Send + 'static {
     }
 }
 
-impl<T: RecordFilter + ?Sized> RecordFilter for Box<T> {
+impl<T: EventFilter + ?Sized> EventFilter for Box<T> {
     fn check(&self, event: &Event<'_>) -> bool {
         (**self).check(event)
     }
@@ -145,14 +145,14 @@ impl<T: RecordFilter + ?Sized> RecordFilter for Box<T> {
 // DefaultFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// This is default implementation of [`RecordFilter`] trait which [`check`] method always return `true`.
+/// This is default implementation of [`EventFilter`] trait which [`check`] method always return `true`.
 /// It should be constructed using [`Default::default`] method.
 ///
-/// [`check`]: RecordFilter::check
+/// [`check`]: EventFilter::check
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DefaultFilter;
 
-impl RecordFilter for DefaultFilter {
+impl EventFilter for DefaultFilter {
     #[inline]
     fn check(&self, _event: &Event<'_>) -> bool {
         true
@@ -164,32 +164,32 @@ impl RecordFilter for DefaultFilter {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// RecordKindFilter
+// EventKindFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Implementation of [`RecordFilter`] that accepts allowed [`RecordKind`] array.
+/// Implementation of [`EventFilter`] that accepts allowed [`EventKind`] array.
 ///
-/// This implementation of the [`RecordFilter`] trait accepts an array of allowed log record kinds ([`RecordKind`]) during
-/// construction. Its [`check`] method returns `true` if the received log record kind is present in this array.
+/// This implementation of the [`EventFilter`] trait accepts an array of allowed event kinds ([`EventKind`]) during
+/// construction. Its [`check`] method returns `true` if the kind of the received event is present in this array.
 /// It decides from [`Event::kind`] alone and never asks for the formatted record, so on its own it rejects reads
 /// and writes without formatting them.
 ///
-/// [`check`]: RecordFilter::check
+/// [`check`]: EventFilter::check
 #[derive(Debug)]
-pub struct RecordKindFilter {
-    allowed_kinds: Vec<RecordKind>,
+pub struct EventKindFilter {
+    allowed_kinds: Vec<EventKind>,
 }
 
-impl RecordKindFilter {
-    /// Construct a new instance of [`RecordKindFilter`] using provided array of allowed log record kinds ([`RecordKind`]).
-    pub fn new(kinds: &'static [RecordKind]) -> Self {
+impl EventKindFilter {
+    /// Construct a new instance of [`EventKindFilter`] using provided array of allowed event kinds ([`EventKind`]).
+    pub fn new(kinds: &'static [EventKind]) -> Self {
         Self {
             allowed_kinds: kinds.iter().copied().unique().collect(),
         }
     }
 }
 
-impl RecordFilter for RecordKindFilter {
+impl EventFilter for EventKindFilter {
     #[inline]
     fn check(&self, event: &Event<'_>) -> bool {
         self.allowed_kinds.contains(&event.kind())
@@ -204,10 +204,10 @@ impl RecordFilter for RecordKindFilter {
 // AllFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Implementation of [`RecordFilter`] that combines multiple filters with AND logic.
+/// Implementation of [`EventFilter`] that combines multiple filters with AND logic.
 ///
-/// This implementation of the [`RecordFilter`] trait accepts a vector of boxed filters during construction.
-/// Its [`check`] method returns `true` only if **all** underlying filters return `true` for the given record.
+/// This implementation of the [`EventFilter`] trait accepts a vector of boxed filters during construction.
+/// Its [`check`] method returns `true` only if **all** underlying filters return `true` for the given event.
 /// If the filter list is empty, it returns `true` by default (empty conjunction is vacuously true).
 /// The underlying filters are asked in order, and the first one that returns `false` settles the result. They all
 /// receive the same [`Event`], so a read or write is formatted at most once however many of them ask for its record.
@@ -219,33 +219,30 @@ impl RecordFilter for RecordKindFilter {
 /// ```
 /// use logged_stream::AllFilter;
 /// use logged_stream::Event;
+/// use logged_stream::EventFilter;
+/// use logged_stream::EventKind;
+/// use logged_stream::EventKindFilter;
 /// use logged_stream::LowercaseHexadecimalFormatter;
-/// use logged_stream::Record;
-/// use logged_stream::RecordFilter;
-/// use logged_stream::RecordKind;
-/// use logged_stream::RecordKindFilter;
 ///
 /// // Create a filter that accepts only Read operations
 /// let filter = AllFilter::new(vec![
-///     Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+///     Box::new(EventKindFilter::new(&[EventKind::Read])),
 /// ]);
 ///
 /// let formatter = LowercaseHexadecimalFormatter::new_default();
 /// assert!(filter.check(&Event::read(b"data", &formatter)));
-///
-/// let error_record = Record::new(RecordKind::Error, String::from("error"));
-/// assert!(!filter.check(&Event::from(error_record)));
+/// assert!(!filter.check(&Event::message(EventKind::Error, "error")));
 /// ```
 ///
-/// [`check`]: RecordFilter::check
+/// [`check`]: EventFilter::check
 pub struct AllFilter {
-    filters: Vec<Box<dyn RecordFilter>>,
+    filters: Vec<Box<dyn EventFilter>>,
 }
 
 impl fmt::Debug for AllFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AllFilter")
-            .field("filters", &RecordFiltersDebug(&self.filters))
+            .field("filters", &EventFiltersDebug(&self.filters))
             .finish()
     }
 }
@@ -255,26 +252,26 @@ impl AllFilter {
     ///
     /// # Arguments
     ///
-    /// * `filters` - A vector of boxed filters implementing [`RecordFilter`] trait
+    /// * `filters` - A vector of boxed filters implementing [`EventFilter`] trait
     ///
     /// # Examples
     ///
     /// ```
     /// use logged_stream::AllFilter;
-    /// use logged_stream::RecordKind;
-    /// use logged_stream::RecordKindFilter;
+    /// use logged_stream::EventKind;
+    /// use logged_stream::EventKindFilter;
     ///
     /// let filter = AllFilter::new(vec![
-    ///     Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-    ///     Box::new(RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write])),
+    ///     Box::new(EventKindFilter::new(&[EventKind::Read])),
+    ///     Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
     /// ]);
     /// ```
-    pub fn new(filters: Vec<Box<dyn RecordFilter>>) -> Self {
+    pub fn new(filters: Vec<Box<dyn EventFilter>>) -> Self {
         Self { filters }
     }
 }
 
-impl RecordFilter for AllFilter {
+impl EventFilter for AllFilter {
     #[inline]
     fn check(&self, event: &Event<'_>) -> bool {
         self.filters.iter().all(|filter| filter.check(event))
@@ -289,10 +286,10 @@ impl RecordFilter for AllFilter {
 // AnyFilter
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Implementation of [`RecordFilter`] that combines multiple filters with OR logic.
+/// Implementation of [`EventFilter`] that combines multiple filters with OR logic.
 ///
-/// This implementation of the [`RecordFilter`] trait accepts a vector of boxed filters during construction.
-/// Its [`check`] method returns `true` if **any** of the underlying filters returns `true` for the given record.
+/// This implementation of the [`EventFilter`] trait accepts a vector of boxed filters during construction.
+/// Its [`check`] method returns `true` if **any** of the underlying filters returns `true` for the given event.
 /// If the filter list is empty, it returns `false` by default (empty disjunction is false).
 /// The underlying filters are asked in order, and the first one that returns `true` settles the result. They all
 /// receive the same [`Event`], so a read or write is formatted at most once however many of them ask for its record.
@@ -304,35 +301,32 @@ impl RecordFilter for AllFilter {
 /// ```
 /// use logged_stream::AnyFilter;
 /// use logged_stream::Event;
+/// use logged_stream::EventFilter;
+/// use logged_stream::EventKind;
+/// use logged_stream::EventKindFilter;
 /// use logged_stream::LowercaseHexadecimalFormatter;
-/// use logged_stream::Record;
-/// use logged_stream::RecordFilter;
-/// use logged_stream::RecordKind;
-/// use logged_stream::RecordKindFilter;
 ///
 /// // Create a filter that accepts Read OR Write operations
 /// let filter = AnyFilter::new(vec![
-///     Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-///     Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+///     Box::new(EventKindFilter::new(&[EventKind::Read])),
+///     Box::new(EventKindFilter::new(&[EventKind::Write])),
 /// ]);
 ///
 /// let formatter = LowercaseHexadecimalFormatter::new_default();
 /// assert!(filter.check(&Event::read(b"data", &formatter)));
 /// assert!(filter.check(&Event::write(b"data", &formatter)));
-///
-/// let error_record = Record::new(RecordKind::Error, String::from("error"));
-/// assert!(!filter.check(&Event::from(error_record)));
+/// assert!(!filter.check(&Event::message(EventKind::Error, "error")));
 /// ```
 ///
-/// [`check`]: RecordFilter::check
+/// [`check`]: EventFilter::check
 pub struct AnyFilter {
-    filters: Vec<Box<dyn RecordFilter>>,
+    filters: Vec<Box<dyn EventFilter>>,
 }
 
 impl fmt::Debug for AnyFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AnyFilter")
-            .field("filters", &RecordFiltersDebug(&self.filters))
+            .field("filters", &EventFiltersDebug(&self.filters))
             .finish()
     }
 }
@@ -342,26 +336,26 @@ impl AnyFilter {
     ///
     /// # Arguments
     ///
-    /// * `filters` - A vector of boxed filters implementing [`RecordFilter`] trait
+    /// * `filters` - A vector of boxed filters implementing [`EventFilter`] trait
     ///
     /// # Examples
     ///
     /// ```
     /// use logged_stream::AnyFilter;
-    /// use logged_stream::RecordKind;
-    /// use logged_stream::RecordKindFilter;
+    /// use logged_stream::EventKind;
+    /// use logged_stream::EventKindFilter;
     ///
     /// let filter = AnyFilter::new(vec![
-    ///     Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-    ///     Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+    ///     Box::new(EventKindFilter::new(&[EventKind::Read])),
+    ///     Box::new(EventKindFilter::new(&[EventKind::Write])),
     /// ]);
     /// ```
-    pub fn new(filters: Vec<Box<dyn RecordFilter>>) -> Self {
+    pub fn new(filters: Vec<Box<dyn EventFilter>>) -> Self {
         Self { filters }
     }
 }
 
-impl RecordFilter for AnyFilter {
+impl EventFilter for AnyFilter {
     #[inline]
     fn check(&self, event: &Event<'_>) -> bool {
         self.filters.iter().any(|filter| filter.check(event))
@@ -376,23 +370,23 @@ impl RecordFilter for AnyFilter {
 // Debug Helpers
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Helper wrapper to bridge [`RecordFilter::fmt_debug`] into [`fmt::Debug`].
-struct RecordFilterDebug<'a>(&'a dyn RecordFilter);
+/// Helper wrapper to bridge [`EventFilter::fmt_debug`] into [`fmt::Debug`].
+struct EventFilterDebug<'a>(&'a dyn EventFilter);
 
-impl fmt::Debug for RecordFilterDebug<'_> {
+impl fmt::Debug for EventFilterDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt_debug(f)
     }
 }
 
-/// Helper wrapper to format a slice of [`RecordFilter`]s without allocating.
-struct RecordFiltersDebug<'a>(&'a [Box<dyn RecordFilter>]);
+/// Helper wrapper to format a slice of [`EventFilter`]s without allocating.
+struct EventFiltersDebug<'a>(&'a [Box<dyn EventFilter>]);
 
-impl fmt::Debug for RecordFiltersDebug<'_> {
+impl fmt::Debug for EventFiltersDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut list = f.debug_list();
         for filter in self.0.iter() {
-            list.entry(&RecordFilterDebug(filter.as_ref()));
+            list.entry(&EventFilterDebug(filter.as_ref()));
         }
         list.finish()
     }
@@ -406,26 +400,19 @@ impl fmt::Debug for RecordFiltersDebug<'_> {
 mod tests {
     use crate::buffer_formatter::BufferFormatter;
     use crate::buffer_formatter::LowercaseHexadecimalFormatter;
+    use crate::event::Event;
+    use crate::event::EventKind;
     use crate::filter::AllFilter;
     use crate::filter::AnyFilter;
     use crate::filter::DefaultFilter;
-    use crate::filter::RecordFilter;
-    use crate::filter::RecordFilterDebug;
-    use crate::filter::RecordKindFilter;
-    use crate::record::Event;
-    use crate::record::Record;
-    use crate::record::RecordKind;
+    use crate::filter::EventFilter;
+    use crate::filter::EventFilterDebug;
+    use crate::filter::EventKindFilter;
     use std::cell::Cell;
     use std::fmt;
     use std::sync::Arc;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
-
-    /// An event without bytes that carries `message`, like the ones `LoggedStream` builds for errors, shutdowns,
-    /// drops and opens. The provided filters judge only its kind.
-    fn event(kind: RecordKind, message: &str) -> Event<'static> {
-        Event::from(Record::new(kind, String::from(message)))
-    }
 
     /// Formats like [`LowercaseHexadecimalFormatter`] and counts its `format_buffer` calls.
     struct CountingFormatter(Cell<usize>);
@@ -448,7 +435,7 @@ mod tests {
     /// Judges the formatted record: keeps events whose message contains the needle.
     struct MessageFilter(&'static str);
 
-    impl RecordFilter for MessageFilter {
+    impl EventFilter for MessageFilter {
         fn check(&self, event: &Event<'_>) -> bool {
             event.record().message.contains(self.0)
         }
@@ -457,7 +444,7 @@ mod tests {
     /// Judges reads and writes on their first raw byte, and keeps every other event.
     struct FirstByteFilter(u8);
 
-    impl RecordFilter for FirstByteFilter {
+    impl EventFilter for FirstByteFilter {
         fn check(&self, event: &Event<'_>) -> bool {
             match event.bytes() {
                 Some(bytes) => bytes.first() == Some(&self.0),
@@ -469,7 +456,7 @@ mod tests {
     /// Asks for the formatted record of every event, keeps the event, and counts its calls.
     struct CountingFilter(Arc<AtomicUsize>);
 
-    impl RecordFilter for CountingFilter {
+    impl EventFilter for CountingFilter {
         fn check(&self, event: &Event<'_>) -> bool {
             self.0.fetch_add(1, Ordering::SeqCst);
             event.record();
@@ -482,88 +469,82 @@ mod tests {
     #[test]
     fn test_unpin() {
         assert_unpin::<DefaultFilter>();
-        assert_unpin::<RecordKindFilter>();
+        assert_unpin::<EventKindFilter>();
         assert_unpin::<AllFilter>();
         assert_unpin::<AnyFilter>();
     }
 
     #[test]
     fn test_default_filter() {
-        assert!(DefaultFilter.check(&event(RecordKind::Read, "01:02:03:04:05:06")));
-        assert!(DefaultFilter.check(&event(RecordKind::Write, "01:02:03:04:05:06")));
-        assert!(DefaultFilter.check(&event(RecordKind::Drop, "deallocated")));
-        assert!(DefaultFilter.check(&event(RecordKind::Shutdown, "write shutdown request")));
+        assert!(DefaultFilter.check(&Event::message(EventKind::Read, "01:02:03:04:05:06")));
+        assert!(DefaultFilter.check(&Event::message(EventKind::Write, "01:02:03:04:05:06")));
+        assert!(DefaultFilter.check(&Event::message(EventKind::Drop, "deallocated")));
+        assert!(DefaultFilter.check(&Event::message(
+            EventKind::Shutdown,
+            "write shutdown request"
+        )));
     }
 
     #[test]
-    fn test_record_kind_filter() {
-        let filter = RecordKindFilter::new(&[RecordKind::Read]);
-        assert!(filter.check(&event(RecordKind::Read, "01:02:03:04:05:06")));
-        assert!(!filter.check(&event(RecordKind::Write, "01:02:03:04:05:06")));
-        assert!(!filter.check(&event(RecordKind::Drop, "deallocated")));
-        assert!(!filter.check(&event(RecordKind::Shutdown, "write shutdown request")));
+    fn test_event_kind_filter() {
+        let filter = EventKindFilter::new(&[EventKind::Read]);
+        assert!(filter.check(&Event::message(EventKind::Read, "01:02:03:04:05:06")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "01:02:03:04:05:06")));
+        assert!(!filter.check(&Event::message(EventKind::Drop, "deallocated")));
+        assert!(!filter.check(&Event::message(
+            EventKind::Shutdown,
+            "write shutdown request"
+        )));
     }
 
     #[test]
     fn test_all_filter_empty() {
         let filter = AllFilter::new(vec![]);
         // Empty conjunction should return true (vacuously true)
-        assert!(filter.check(&event(RecordKind::Read, "test")));
-        assert!(filter.check(&event(RecordKind::Write, "test")));
-        assert!(filter.check(&event(RecordKind::Error, "test")));
+        assert!(filter.check(&Event::message(EventKind::Read, "test")));
+        assert!(filter.check(&Event::message(EventKind::Write, "test")));
+        assert!(filter.check(&Event::message(EventKind::Error, "test")));
     }
 
     #[test]
     fn test_all_filter_single() {
-        let filter = AllFilter::new(vec![Box::new(RecordKindFilter::new(&[RecordKind::Read]))]);
+        let filter = AllFilter::new(vec![Box::new(EventKindFilter::new(&[EventKind::Read]))]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(!filter.check(&event(RecordKind::Write, "data")));
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
     fn test_all_filter_multiple_all_pass() {
         // Both filters accept Read
         let filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Write,
-            ])),
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Error,
-            ])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
     }
 
     #[test]
     fn test_all_filter_multiple_one_fails() {
         // First accepts Write, second doesn't
         let filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Write,
-            ])),
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Error,
-            ])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
         ]);
 
-        assert!(!filter.check(&event(RecordKind::Write, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "data")));
     }
 
     #[test]
     fn test_all_filter_multiple_all_fail() {
         let filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ]);
 
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
@@ -571,89 +552,83 @@ mod tests {
         // Combining with DefaultFilter (which always returns true)
         let filter = AllFilter::new(vec![
             Box::new(DefaultFilter),
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(!filter.check(&event(RecordKind::Write, "data")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "data")));
     }
 
     #[test]
     fn test_any_filter_empty() {
         let filter = AnyFilter::new(vec![]);
         // Empty disjunction should return false
-        assert!(!filter.check(&event(RecordKind::Read, "test")));
-        assert!(!filter.check(&event(RecordKind::Write, "test")));
-        assert!(!filter.check(&event(RecordKind::Error, "test")));
+        assert!(!filter.check(&Event::message(EventKind::Read, "test")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "test")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "test")));
     }
 
     #[test]
     fn test_any_filter_single() {
-        let filter = AnyFilter::new(vec![Box::new(RecordKindFilter::new(&[RecordKind::Read]))]);
+        let filter = AnyFilter::new(vec![Box::new(EventKindFilter::new(&[EventKind::Read]))]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(!filter.check(&event(RecordKind::Write, "data")));
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
     fn test_any_filter_multiple_first_passes() {
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
     }
 
     #[test]
     fn test_any_filter_multiple_second_passes() {
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Write, "data")));
+        assert!(filter.check(&Event::message(EventKind::Write, "data")));
     }
 
     #[test]
     fn test_any_filter_multiple_all_pass() {
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Write,
-            ])),
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Read,
-                RecordKind::Error,
-            ])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
     }
 
     #[test]
     fn test_any_filter_multiple_all_fail() {
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ]);
 
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
     fn test_any_filter_with_default() {
         // Combining with DefaultFilter (which always returns true)
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
             Box::new(DefaultFilter),
         ]);
 
         // Should pass for everything because DefaultFilter always returns true
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(filter.check(&event(RecordKind::Write, "data")));
-        assert!(filter.check(&event(RecordKind::Error, "error")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(filter.check(&Event::message(EventKind::Write, "data")));
+        assert!(filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
@@ -661,14 +636,14 @@ mod tests {
         // (Read OR Write)
         // Implemented as: AllFilter containing AnyFilter for (Read OR Write)
         let filter = AllFilter::new(vec![Box::new(AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ]))]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(filter.check(&event(RecordKind::Write, "data")));
-        assert!(!filter.check(&event(RecordKind::Drop, "dropped")));
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(filter.check(&Event::message(EventKind::Write, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Drop, "dropped")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
     }
 
     #[test]
@@ -678,59 +653,53 @@ mod tests {
         // This should only pass for Read
         let filter = AllFilter::new(vec![
             Box::new(AnyFilter::new(vec![
-                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-                Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+                Box::new(EventKindFilter::new(&[EventKind::Read])),
+                Box::new(EventKindFilter::new(&[EventKind::Write])),
             ])),
             Box::new(AnyFilter::new(vec![
-                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-                Box::new(RecordKindFilter::new(&[RecordKind::Error])),
+                Box::new(EventKindFilter::new(&[EventKind::Read])),
+                Box::new(EventKindFilter::new(&[EventKind::Error])),
             ])),
         ]);
 
-        assert!(filter.check(&event(RecordKind::Read, "data")));
-        assert!(!filter.check(&event(RecordKind::Write, "data")));
-        assert!(!filter.check(&event(RecordKind::Error, "error")));
-        assert!(!filter.check(&event(RecordKind::Drop, "dropped")));
+        assert!(filter.check(&Event::message(EventKind::Read, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Write, "data")));
+        assert!(!filter.check(&Event::message(EventKind::Error, "error")));
+        assert!(!filter.check(&Event::message(EventKind::Drop, "dropped")));
     }
 
     #[test]
     fn test_provided_filters_decide_by_kind_without_formatting() {
         let kinds = [
-            RecordKind::Open,
-            RecordKind::Read,
-            RecordKind::Write,
-            RecordKind::Error,
-            RecordKind::Shutdown,
-            RecordKind::Drop,
+            EventKind::Open,
+            EventKind::Read,
+            EventKind::Write,
+            EventKind::Error,
+            EventKind::Shutdown,
+            EventKind::Drop,
         ];
-        let filters: Vec<Box<dyn RecordFilter>> = vec![
+        let filters: Vec<Box<dyn EventFilter>> = vec![
             Box::new(DefaultFilter),
-            Box::new(RecordKindFilter::new(&[])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[
-                RecordKind::Drop,
-                RecordKind::Error,
-                RecordKind::Shutdown,
+            Box::new(EventKindFilter::new(&[])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[
+                EventKind::Drop,
+                EventKind::Error,
+                EventKind::Shutdown,
             ])),
             Box::new(AllFilter::new(vec![])),
             Box::new(AnyFilter::new(vec![])),
             Box::new(AllFilter::new(vec![
-                Box::new(RecordKindFilter::new(&[
-                    RecordKind::Read,
-                    RecordKind::Write,
-                ])),
-                Box::new(RecordKindFilter::new(&[
-                    RecordKind::Read,
-                    RecordKind::Error,
-                ])),
+                Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
+                Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
             ])),
             Box::new(AnyFilter::new(vec![
-                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-                Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+                Box::new(EventKindFilter::new(&[EventKind::Read])),
+                Box::new(EventKindFilter::new(&[EventKind::Write])),
             ])),
             Box::new(AllFilter::new(vec![Box::new(AnyFilter::new(vec![
                 Box::new(DefaultFilter),
-                Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+                Box::new(EventKindFilter::new(&[EventKind::Write])),
             ]))])),
         ];
         let formatter = CountingFormatter(Cell::new(0));
@@ -739,15 +708,15 @@ mod tests {
             for kind in kinds {
                 // The event `LoggedStream` builds: bytes for a read or write, a message for anything else.
                 let built = match kind {
-                    RecordKind::Read => Event::read(&[0x01, 0x02], &formatter),
-                    RecordKind::Write => Event::write(&[0x01, 0x02], &formatter),
-                    _ => event(kind, "message"),
+                    EventKind::Read => Event::read(&[0x01, 0x02], &formatter),
+                    EventKind::Write => Event::write(&[0x01, 0x02], &formatter),
+                    _ => Event::message(kind, "message"),
                 };
                 assert_eq!(
                     filter.check(&built),
-                    filter.check(&event(kind, "01:02")),
+                    filter.check(&Event::message(kind, "01:02")),
                     "{:?} judges more than the kind of {kind:?}",
-                    RecordFilterDebug(filter.as_ref())
+                    EventFilterDebug(filter.as_ref())
                 );
             }
         }
@@ -762,11 +731,11 @@ mod tests {
         let application_data = Event::read(&[0x17, 0x03], &formatter);
 
         // The filter decides on the raw bytes, so each wrapper has to hand on the event it was given.
-        let boxed: Box<dyn RecordFilter> = Box::new(FirstByteFilter(0x16));
+        let boxed: Box<dyn EventFilter> = Box::new(FirstByteFilter(0x16));
         assert!(boxed.check(&handshake));
         assert!(!boxed.check(&application_data));
 
-        let double_boxed: Box<Box<dyn RecordFilter>> = Box::new(boxed);
+        let double_boxed: Box<Box<dyn EventFilter>> = Box::new(boxed);
         assert!(!double_boxed.check(&application_data));
 
         // Composite children are boxed too.
@@ -798,7 +767,7 @@ mod tests {
         let write = Event::write(&[0x01], &formatter);
         let filter = AllFilter::new(vec![
             Box::new(CountingFilter(Arc::clone(&calls))),
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
         ]);
         assert!(!filter.check(&write));
         assert_eq!(calls.load(Ordering::SeqCst), 1);
@@ -809,7 +778,7 @@ mod tests {
         let formatter = CountingFormatter(Cell::new(0));
         let write = Event::write(&[0x01], &formatter);
         let filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
             Box::new(CountingFilter(Arc::clone(&calls))),
         ]);
         assert!(!filter.check(&write));
@@ -821,7 +790,7 @@ mod tests {
         let formatter = CountingFormatter(Cell::new(0));
         let read = Event::read(&[0x01], &formatter);
         let filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
             Box::new(CountingFilter(Arc::clone(&calls))),
         ]);
         assert!(filter.check(&read));
@@ -856,49 +825,49 @@ mod tests {
     #[test]
     fn test_trait_object_safety() {
         // Assert trait object construct.
-        let default: Box<dyn RecordFilter> = Box::<DefaultFilter>::default();
-        let record_kind: Box<dyn RecordFilter> = Box::new(RecordKindFilter::new(&[]));
-        let all: Box<dyn RecordFilter> = Box::new(AllFilter::new(vec![]));
-        let any: Box<dyn RecordFilter> = Box::new(AnyFilter::new(vec![]));
+        let default: Box<dyn EventFilter> = Box::<DefaultFilter>::default();
+        let event_kind: Box<dyn EventFilter> = Box::new(EventKindFilter::new(&[]));
+        let all: Box<dyn EventFilter> = Box::new(AllFilter::new(vec![]));
+        let any: Box<dyn EventFilter> = Box::new(AnyFilter::new(vec![]));
 
-        let open = event(RecordKind::Open, "test log record");
+        let open = Event::message(EventKind::Open, "test log record");
 
         // Assert that trait object methods are dispatchable.
         _ = default.check(&open);
-        _ = record_kind.check(&open);
+        _ = event_kind.check(&open);
         _ = all.check(&open);
         _ = any.check(&open);
 
         let formatter = LowercaseHexadecimalFormatter::new_default();
         let read = Event::read(&[0x01], &formatter);
         assert!(default.check(&read));
-        assert!(!record_kind.check(&read));
+        assert!(!event_kind.check(&read));
         assert!(all.check(&read));
         assert!(!any.check(&read));
     }
 
-    fn assert_record_filter<T: RecordFilter>() {}
+    fn assert_event_filter<T: EventFilter>() {}
 
     #[test]
     fn test_box() {
-        assert_record_filter::<Box<dyn RecordFilter>>();
-        assert_record_filter::<Box<RecordKindFilter>>();
-        assert_record_filter::<Box<DefaultFilter>>();
-        assert_record_filter::<Box<AllFilter>>();
-        assert_record_filter::<Box<AnyFilter>>();
+        assert_event_filter::<Box<dyn EventFilter>>();
+        assert_event_filter::<Box<EventKindFilter>>();
+        assert_event_filter::<Box<DefaultFilter>>();
+        assert_event_filter::<Box<AllFilter>>();
+        assert_event_filter::<Box<AnyFilter>>();
     }
 
     fn assert_send<T: Send>() {}
 
     #[test]
     fn test_send() {
-        assert_send::<RecordKindFilter>();
+        assert_send::<EventKindFilter>();
         assert_send::<DefaultFilter>();
         assert_send::<AllFilter>();
         assert_send::<AnyFilter>();
 
-        assert_send::<Box<dyn RecordFilter>>();
-        assert_send::<Box<RecordKindFilter>>();
+        assert_send::<Box<dyn EventFilter>>();
+        assert_send::<Box<EventKindFilter>>();
         assert_send::<Box<DefaultFilter>>();
         assert_send::<Box<AllFilter>>();
         assert_send::<Box<AnyFilter>>();
@@ -909,12 +878,12 @@ mod tests {
     #[test]
     fn test_debug() {
         assert_debug::<DefaultFilter>();
-        assert_debug::<RecordKindFilter>();
+        assert_debug::<EventKindFilter>();
         assert_debug::<AllFilter>();
         assert_debug::<AnyFilter>();
 
         assert_debug::<Box<DefaultFilter>>();
-        assert_debug::<Box<RecordKindFilter>>();
+        assert_debug::<Box<EventKindFilter>>();
         assert_debug::<Box<AllFilter>>();
         assert_debug::<Box<AnyFilter>>();
     }
@@ -924,10 +893,10 @@ mod tests {
         // DefaultFilter
         assert_eq!(format!("{:?}", DefaultFilter), "DefaultFilter");
 
-        // RecordKindFilter
-        let record_kind_filter = RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]);
-        let debug_str = format!("{:?}", record_kind_filter);
-        assert!(debug_str.contains("RecordKindFilter"));
+        // EventKindFilter
+        let event_kind_filter = EventKindFilter::new(&[EventKind::Read, EventKind::Write]);
+        let debug_str = format!("{:?}", event_kind_filter);
+        assert!(debug_str.contains("EventKindFilter"));
         assert!(debug_str.contains("Read"));
         assert!(debug_str.contains("Write"));
 
@@ -939,12 +908,12 @@ mod tests {
 
         // AllFilter (with children)
         let all_filter = AllFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
             Box::new(DefaultFilter),
         ]);
         let debug_str = format!("{:?}", all_filter);
         assert!(debug_str.contains("AllFilter"));
-        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("EventKindFilter"));
         assert!(debug_str.contains("Read"));
         assert!(debug_str.contains("DefaultFilter"));
 
@@ -956,23 +925,23 @@ mod tests {
 
         // AnyFilter (with children)
         let any_filter = AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
             Box::new(DefaultFilter),
         ]);
         let debug_str = format!("{:?}", any_filter);
         assert!(debug_str.contains("AnyFilter"));
-        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("EventKindFilter"));
         assert!(debug_str.contains("Write"));
         assert!(debug_str.contains("DefaultFilter"));
 
         // Nested composite filter
         let nested = AllFilter::new(vec![Box::new(AnyFilter::new(vec![Box::new(
-            RecordKindFilter::new(&[RecordKind::Read]),
+            EventKindFilter::new(&[EventKind::Read]),
         )]))]);
         let debug_str = format!("{:?}", nested);
         assert!(debug_str.contains("AllFilter"));
         assert!(debug_str.contains("AnyFilter"));
-        assert!(debug_str.contains("RecordKindFilter"));
+        assert!(debug_str.contains("EventKindFilter"));
         assert!(debug_str.contains("Read"));
     }
 }

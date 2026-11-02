@@ -14,7 +14,7 @@ const DEFAULT_SEPARATOR: &str = ":";
 /// [`LoggedStream`] calls [`format_buffer`] lazily, at most once per read or write, and only for the
 /// reads and writes that a filter asks to see formatted or that are logged. Do not rely on it running
 /// for every buffer; if your formatter has side effects that must, have the filter's
-/// [`RecordFilter::check`] call [`Event::record`] before it decides.
+/// [`EventFilter::check`] call [`Event::record`] before it decides.
 ///
 /// # Wrapping in an `Arc`
 ///
@@ -27,7 +27,7 @@ const DEFAULT_SEPARATOR: &str = ":";
 ///
 /// [`format_buffer`]: BufferFormatter::format_buffer
 /// [`LoggedStream`]: crate::LoggedStream
-/// [`RecordFilter::check`]: crate::RecordFilter::check
+/// [`EventFilter::check`]: crate::EventFilter::check
 /// [`Event::record`]: crate::Event::record
 pub trait BufferFormatter: Send + 'static {
     /// This method returns a separator which will be inserted between bytes during [`format_buffer`] method call.

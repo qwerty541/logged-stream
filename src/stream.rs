@@ -1,11 +1,11 @@
 use crate::ChannelLogger;
+use crate::EventFilter;
 use crate::MemoryStorageLogger;
-use crate::RecordFilter;
 use crate::buffer_formatter::BufferFormatter;
+use crate::event::Event;
+use crate::event::EventKind;
 use crate::logger::Logger;
-use crate::record::Event;
 use crate::record::Record;
-use crate::record::RecordKind;
 use std::collections;
 use std::fmt;
 use std::io;
@@ -30,18 +30,22 @@ use tokio::io as tokio_io;
 /// read or write is formatted only when the filter asks for the formatted record or when the
 /// record is logged, so a read or write rejected without it costs almost nothing.
 ///
+/// An *event* ([`Event`]) is something that happened on the stream, such as a read or a shutdown,
+/// and it is what the filter judges. A *record* ([`Record`]) is the log entry made from an accepted
+/// event, with its formatted message and timestamp, and it is what the logger receives.
+///
 /// -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing [`Read`] /
 ///     [`Write`] (or the [`tokio`] async equivalents) works — a socket, a file, an in-memory buffer,
 ///     or your own type. [`LoggedStream`] implements the same IO trait `S` does, so it slots in
 ///     wherever `S` was used.
 /// -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 ///     strings you see in the log.
-/// -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
-///     including shutdown and drop, and sees each as an [`Event`]: the formatted, human-readable
-///     record, the raw bytes of a read or write, and the kind.
-/// -   **Logger ([`Logger`]).** The sink that consumes accepted records.
+/// -   **Filter ([`EventFilter`]).** Decides which events are logged. It runs on every event kind,
+///     including shutdown and drop, and can judge an event by its formatted, human-readable record,
+///     the raw bytes of a read or write, or its kind.
+/// -   **Logger ([`Logger`]).** The sink that consumes the records of accepted events.
 ///
-/// All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
+/// All three of [`BufferFormatter`], [`EventFilter`] and [`Logger`] are public, `Send + 'static`
 /// and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for
 /// [`BufferFormatter`]). You are free to supply your own implementation of any part.
 ///
@@ -60,20 +64,20 @@ use tokio::io as tokio_io;
 /// | [`OctalFormatter`] | octal — `012:377` |
 /// | [`BinaryFormatter`] | binary — `00001010:11111111` |
 ///
-/// ## Filters ([`RecordFilter`])
+/// ## Filters ([`EventFilter`])
 ///
-/// Decide which records reach the logger.
+/// Decide which events are logged.
 ///
 /// | Filter | Behavior |
 /// | --- | --- |
-/// | [`DefaultFilter`] | Accepts every record. |
-/// | [`RecordKindFilter`] | Accepts only the record kinds in an allow-list given at construction. |
-/// | [`AllFilter`] | AND — a record passes only if every child filter accepts it (an empty list accepts everything). |
-/// | [`AnyFilter`] | OR — a record passes if any child filter accepts it (an empty list rejects everything). |
+/// | [`DefaultFilter`] | Accepts every event. |
+/// | [`EventKindFilter`] | Accepts only the event kinds in an allow-list given at construction. |
+/// | [`AllFilter`] | AND — an event passes only if every child filter accepts it (an empty list accepts everything). |
+/// | [`AnyFilter`] | OR — an event passes if any child filter accepts it (an empty list rejects everything). |
 ///
 /// ## Loggers ([`Logger`])
 ///
-/// Consume each accepted record.
+/// Consume the record of each accepted event.
 ///
 /// | Logger | Destination |
 /// | --- | --- |
@@ -83,7 +87,7 @@ use tokio::io as tokio_io;
 /// | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
 ///
 /// [`ConsoleLogger`] and [`FileLogger`] additionally accept an optional prefix (`with_prefix` /
-/// `set_prefix`, none by default), written verbatim before the record kind character of every line.
+/// `set_prefix`, none by default), written verbatim before the event kind character of every line.
 /// It tells apart several [`LoggedStream`]s — for example one per connection — that share a single
 /// console or file:
 ///
@@ -99,7 +103,7 @@ use tokio::io as tokio_io;
 /// starting offset, and they will silently overwrite each other's records.
 ///
 /// If none of the provided implementations matches your requirements, you can implement
-/// [`BufferFormatter`], [`RecordFilter`] or [`Logger`] yourself and pass your type to
+/// [`BufferFormatter`], [`EventFilter`] or [`Logger`] yourself and pass your type to
 /// [`LoggedStream`] exactly like a built-in.
 ///
 /// [`Read`]: io::Read
@@ -113,7 +117,7 @@ use tokio::io as tokio_io;
 /// [`OctalFormatter`]: crate::OctalFormatter
 /// [`Event`]: crate::Event
 /// [`DefaultFilter`]: crate::DefaultFilter
-/// [`RecordKindFilter`]: crate::RecordKindFilter
+/// [`EventKindFilter`]: crate::EventKindFilter
 /// [`AllFilter`]: crate::AllFilter
 /// [`AnyFilter`]: crate::AnyFilter
 /// [`ConsoleLogger`]: crate::ConsoleLogger
@@ -122,7 +126,7 @@ use tokio::io as tokio_io;
 pub struct LoggedStream<
     S: 'static,
     Formatter: 'static,
-    Filter: RecordFilter + 'static,
+    Filter: EventFilter + 'static,
     L: Logger + 'static,
 > {
     inner_stream: S,
@@ -131,7 +135,7 @@ pub struct LoggedStream<
     logger: L,
 }
 
-impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger + 'static>
+impl<S: 'static, Formatter: 'static, Filter: EventFilter + 'static, L: Logger + 'static>
     LoggedStream<S, Formatter, Filter, L>
 {
     /// Construct a new instance of [`LoggedStream`] using provided arguments.
@@ -144,44 +148,45 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
         }
     }
 
-    /// Emit a custom [`RecordKind::Open`] record carrying `message`.
+    /// Emit a custom [`EventKind::Open`] event carrying `message`.
     ///
-    /// [`RecordKind::Open`] is never produced automatically by the read, write, shutdown and drop
+    /// [`EventKind::Open`] is never produced automatically by the read, write, shutdown and drop
     /// machinery — this method is the way to emit one. Use it to annotate the start of a stream,
-    /// for example to record the peer of a freshly established connection
+    /// for example to note the peer of a freshly established connection
     /// (`"Established connection with 127.0.0.1:8080"`) or other per-stream metadata.
     ///
-    /// Like every other record, the `Open` record is passed through the filter before it reaches
-    /// the logger, so a `RecordKindFilter` that does not allow `Open` will suppress it. The message
-    /// is logged verbatim; it is not run through the formatter, which only applies to byte buffers.
+    /// Like every other event, the `Open` event is passed through the filter before its record
+    /// reaches the logger, so an `EventKindFilter` that does not allow `Open` will suppress it. The
+    /// message is logged verbatim; it is not run through the formatter, which only applies to byte
+    /// buffers.
     ///
     /// For asynchronous streams, call this before splitting the wrapper with `tokio::io::split`,
     /// since the resulting halves do not expose it.
     pub fn log_open(&mut self, message: impl Into<String>) {
-        self.emit(Record::new(RecordKind::Open, message.into()));
+        self.emit(EventKind::Open, message);
     }
 
-    /// Route a record without bytes — an error, shutdown, drop or manual `Open` marker — through
-    /// the filter as an [`Event`], logging it only if the filter accepts it.
+    /// Route an event without bytes — an error, shutdown, drop or manual `Open` marker — through
+    /// the filter, logging its record only if the filter accepts the event.
     ///
     /// Reads and writes go through [`emit_bytes`](Self::emit_bytes) instead. Between them, the two
-    /// methods route every record, so the filter is applied consistently to all of them.
+    /// methods route every event, so the filter is applied consistently to all of them.
     #[inline]
-    fn emit(&mut self, record: Record) {
-        let event = Event::from(record);
+    fn emit(&mut self, kind: EventKind, message: impl Into<String>) {
+        let event = Event::message(kind, message);
         if self.filter.check(&event) {
             self.logger.log(event.into_record());
         }
     }
 
     /// Route the bytes of a read or write through the filter as an [`Event`], logging the
-    /// formatted record only if the filter accepts it.
+    /// formatted record only if the filter accepts the event.
     ///
     /// The bytes are formatted at most once, and only when needed: when a filter asks for the
-    /// formatted record ([`Event::record`]), or when the accepted record is handed to the logger.
-    /// A read or write rejected without anyone asking is never formatted.
+    /// formatted record ([`Event::record`]), or when the record of the accepted event is handed to
+    /// the logger. A read or write rejected without anyone asking is never formatted.
     #[inline]
-    fn emit_bytes(&mut self, kind: RecordKind, bytes: &[u8])
+    fn emit_bytes(&mut self, kind: EventKind, bytes: &[u8])
     where
         Formatter: BufferFormatter,
     {
@@ -192,7 +197,7 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger +
     }
 }
 
-impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
+impl<S: 'static, Formatter: 'static, Filter: EventFilter + 'static>
     LoggedStream<S, Formatter, Filter, MemoryStorageLogger>
 {
     #[inline]
@@ -206,7 +211,7 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
     }
 }
 
-impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
+impl<S: 'static, Formatter: 'static, Filter: EventFilter + 'static>
     LoggedStream<S, Formatter, Filter, ChannelLogger>
 {
     #[inline]
@@ -223,7 +228,7 @@ impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static>
 impl<
     S: fmt::Debug + 'static,
     Formatter: fmt::Debug + 'static,
-    Filter: RecordFilter + fmt::Debug + 'static,
+    Filter: EventFilter + fmt::Debug + 'static,
     L: Logger + fmt::Debug + 'static,
 > fmt::Debug for LoggedStream<S, Formatter, Filter, L>
 {
@@ -240,7 +245,7 @@ impl<
 impl<
     S: io::Read + 'static,
     Formatter: BufferFormatter + 'static,
-    Filter: RecordFilter + 'static,
+    Filter: EventFilter + 'static,
     L: Logger + 'static,
 > io::Read for LoggedStream<S, Formatter, Filter, L>
 {
@@ -248,13 +253,10 @@ impl<
         let result = self.inner_stream.read(buf);
 
         match &result {
-            Ok(length) => self.emit_bytes(RecordKind::Read, &buf[0..*length]),
+            Ok(length) => self.emit_bytes(EventKind::Read, &buf[0..*length]),
             Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {}
             Err(e) => {
-                self.emit(Record::new(
-                    RecordKind::Error,
-                    format!("Error during read: {e}"),
-                ));
+                self.emit(EventKind::Error, format!("Error during read: {e}"));
             }
         };
 
@@ -265,7 +267,7 @@ impl<
 impl<
     S: tokio_io::AsyncRead + Unpin + 'static,
     Formatter: BufferFormatter + Unpin + 'static,
-    Filter: RecordFilter + Unpin + 'static,
+    Filter: EventFilter + Unpin + 'static,
     L: Logger + Unpin + 'static,
 > tokio_io::AsyncRead for LoggedStream<S, Formatter, Filter, L>
 {
@@ -283,14 +285,11 @@ impl<
         match &result {
             Poll::Ready(Ok(())) if diff == 0 => {}
             Poll::Ready(Ok(())) => mut_self.emit_bytes(
-                RecordKind::Read,
+                EventKind::Read,
                 &(buf.filled())[length_before_read..length_after_read],
             ),
             Poll::Ready(Err(e)) => {
-                mut_self.emit(Record::new(
-                    RecordKind::Error,
-                    format!("Error during async read: {e}"),
-                ));
+                mut_self.emit(EventKind::Error, format!("Error during async read: {e}"));
             }
             Poll::Pending => {}
         }
@@ -302,7 +301,7 @@ impl<
 impl<
     S: io::Write + 'static,
     Formatter: BufferFormatter + 'static,
-    Filter: RecordFilter + 'static,
+    Filter: EventFilter + 'static,
     L: Logger + 'static,
 > io::Write for LoggedStream<S, Formatter, Filter, L>
 {
@@ -310,17 +309,14 @@ impl<
         let result = self.inner_stream.write(buf);
 
         match &result {
-            Ok(length) => self.emit_bytes(RecordKind::Write, &buf[0..*length]),
+            Ok(length) => self.emit_bytes(EventKind::Write, &buf[0..*length]),
             Err(e)
                 if matches!(
                     e.kind(),
                     io::ErrorKind::WriteZero | io::ErrorKind::WouldBlock
                 ) => {}
             Err(e) => {
-                self.emit(Record::new(
-                    RecordKind::Error,
-                    format!("Error during write: {e}"),
-                ));
+                self.emit(EventKind::Error, format!("Error during write: {e}"));
             }
         };
 
@@ -335,7 +331,7 @@ impl<
 impl<
     S: tokio_io::AsyncWrite + Unpin + 'static,
     Formatter: BufferFormatter + Unpin + 'static,
-    Filter: RecordFilter + Unpin + 'static,
+    Filter: EventFilter + Unpin + 'static,
     L: Logger + Unpin + 'static,
 > tokio_io::AsyncWrite for LoggedStream<S, Formatter, Filter, L>
 {
@@ -348,12 +344,9 @@ impl<
         let result = Pin::new(&mut mut_self.inner_stream).poll_write(cx, buf);
 
         match &result {
-            Poll::Ready(Ok(length)) => mut_self.emit_bytes(RecordKind::Write, &buf[0..*length]),
+            Poll::Ready(Ok(length)) => mut_self.emit_bytes(EventKind::Write, &buf[0..*length]),
             Poll::Ready(Err(e)) => {
-                mut_self.emit(Record::new(
-                    RecordKind::Error,
-                    format!("Error during async write: {e}"),
-                ));
+                mut_self.emit(EventKind::Error, format!("Error during async write: {e}"));
             }
             Poll::Pending => {}
         }
@@ -369,20 +362,17 @@ impl<
         let mut_self = self.get_mut();
         let result = Pin::new(&mut mut_self.inner_stream).poll_shutdown(cx);
 
-        mut_self.emit(Record::new(
-            RecordKind::Shutdown,
-            String::from("Writer shutdown request."),
-        ));
+        mut_self.emit(EventKind::Shutdown, "Writer shutdown request.");
 
         result
     }
 }
 
-impl<S: 'static, Formatter: 'static, Filter: RecordFilter + 'static, L: Logger + 'static> Drop
+impl<S: 'static, Formatter: 'static, Filter: EventFilter + 'static, L: Logger + 'static> Drop
     for LoggedStream<S, Formatter, Filter, L>
 {
     fn drop(&mut self) {
-        self.emit(Record::new(RecordKind::Drop, String::from("Deallocated.")));
+        self.emit(EventKind::Drop, "Deallocated.");
     }
 }
 
@@ -394,13 +384,13 @@ mod tests {
     use crate::DecimalFormatter;
     use crate::DefaultFilter;
     use crate::Event;
+    use crate::EventFilter;
+    use crate::EventKind;
+    use crate::EventKindFilter;
     use crate::LoggedStream;
     use crate::LowercaseHexadecimalFormatter;
     use crate::MemoryStorageLogger;
     use crate::Record;
-    use crate::RecordFilter;
-    use crate::RecordKind;
-    use crate::RecordKindFilter;
     use crate::UppercaseHexadecimalFormatter;
     use std::cell::RefCell;
     use std::io::Cursor;
@@ -513,7 +503,7 @@ mod tests {
     /// Keeps every event, and remembers the formatted record of each.
     struct SeenRecords(Arc<Mutex<Vec<Record>>>);
 
-    impl RecordFilter for SeenRecords {
+    impl EventFilter for SeenRecords {
         fn check(&self, event: &Event<'_>) -> bool {
             self.0.lock().unwrap().push(event.record().clone());
             true
@@ -521,9 +511,9 @@ mod tests {
     }
 
     /// Keeps every event, and remembers the kind of each and whether it carried bytes.
-    struct SeenKinds(Arc<Mutex<Vec<(RecordKind, bool)>>>);
+    struct SeenKinds(Arc<Mutex<Vec<(EventKind, bool)>>>);
 
-    impl RecordFilter for SeenKinds {
+    impl EventFilter for SeenKinds {
         fn check(&self, event: &Event<'_>) -> bool {
             self.0
                 .lock()
@@ -538,14 +528,14 @@ mod tests {
     /// drops.
     struct TlsHandshakes(Arc<Mutex<Vec<Vec<u8>>>>);
 
-    impl RecordFilter for TlsHandshakes {
+    impl EventFilter for TlsHandshakes {
         fn check(&self, event: &Event<'_>) -> bool {
             match event.bytes() {
                 Some(bytes) => {
                     self.0.lock().unwrap().push(bytes.to_vec());
                     bytes.first() == Some(&0x16)
                 }
-                None => event.kind() == RecordKind::Drop,
+                None => event.kind() == EventKind::Drop,
             }
         }
     }
@@ -553,7 +543,7 @@ mod tests {
     /// Asks for the formatted record of every event, keeps the event, and counts its calls.
     struct CountingFilter(Arc<AtomicUsize>);
 
-    impl RecordFilter for CountingFilter {
+    impl EventFilter for CountingFilter {
         fn check(&self, event: &Event<'_>) -> bool {
             self.0.fetch_add(1, Ordering::SeqCst);
             event.record();
@@ -665,7 +655,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Read);
+        assert_eq!(records[0].kind, EventKind::Read);
         assert_eq!(records[0].message, "0a:ff");
     }
 
@@ -720,7 +710,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Write);
+        assert_eq!(records[0].kind, EventKind::Write);
         assert_eq!(records[0].message, "0A:FF");
     }
 
@@ -739,16 +729,16 @@ mod tests {
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Record filtering
+    // Event filtering
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    fn test_read_record_suppressed_by_filter() {
-        // The filter allows only Write, so the Read record is dropped.
+    fn test_read_suppressed_by_filter() {
+        // The filter allows only Write, so the read is not logged.
         let mut stream = LoggedStream::new(
             Cursor::new(vec![0x01, 0x02]),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -759,12 +749,12 @@ mod tests {
     }
 
     #[test]
-    fn test_write_record_suppressed_by_filter() {
-        // The filter allows only Read, so the Write record is dropped.
+    fn test_write_suppressed_by_filter() {
+        // The filter allows only Read, so the write is not logged.
         let mut stream = LoggedStream::new(
             Cursor::new(Vec::<u8>::new()),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read]),
+            EventKindFilter::new(&[EventKind::Read]),
             MemoryStorageLogger::new(16),
         );
 
@@ -783,7 +773,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             Cursor::new(vec![0x01, 0x02]),
             CountingFormatter(Arc::clone(&format_calls)),
-            RecordKindFilter::new(&[RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -802,7 +792,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             RecordingWriter(Rc::clone(&sink)),
             CountingFormatter(Arc::clone(&format_calls)),
-            RecordKindFilter::new(&[RecordKind::Read]),
+            EventKindFilter::new(&[EventKind::Read]),
             MemoryStorageLogger::new(16),
         );
 
@@ -822,11 +812,11 @@ mod tests {
         let (client, mut server) = tokio::io::duplex(64);
         server.write_all(&[0xaa, 0xbb]).await.unwrap();
 
-        // The filter `logged_tcp_proxy` puts on its server side: lifecycle records only.
+        // The filter `logged_tcp_proxy` puts on its server side: lifecycle events only.
         let mut stream = LoggedStream::new(
             client,
             CountingFormatter(Arc::clone(&format_calls)),
-            RecordKindFilter::new(&[RecordKind::Drop, RecordKind::Error, RecordKind::Shutdown]),
+            EventKindFilter::new(&[EventKind::Drop, EventKind::Error, EventKind::Shutdown]),
             MemoryStorageLogger::new(16),
         );
 
@@ -863,7 +853,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             shown,
-            vec![(RecordKind::Read, "0a:ff"), (RecordKind::Write, "01")]
+            vec![(EventKind::Read, "0a:ff"), (EventKind::Write, "01")]
         );
         assert_eq!(format_calls.load(Ordering::SeqCst), 2);
         assert_eq!(stream.get_log_records(), seen);
@@ -891,7 +881,7 @@ mod tests {
         );
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Read);
+        assert_eq!(records[0].kind, EventKind::Read);
         assert_eq!(records[0].message, "16:03");
         assert_eq!(format_calls.load(Ordering::SeqCst), 1);
     }
@@ -945,7 +935,7 @@ mod tests {
         // bytes, and of those the filter keeps only drops.
         let records = receiver.try_iter().collect::<Vec<_>>();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Drop);
+        assert_eq!(records[0].kind, EventKind::Drop);
         assert_eq!(shown.lock().unwrap().len(), 1);
     }
 
@@ -983,13 +973,13 @@ mod tests {
         assert_eq!(
             *seen.lock().unwrap(),
             vec![
-                (RecordKind::Open, false),
-                (RecordKind::Read, true),
-                (RecordKind::Write, true),
-                (RecordKind::Shutdown, false),
-                (RecordKind::Drop, false),
-                (RecordKind::Error, false),
-                (RecordKind::Drop, false),
+                (EventKind::Open, false),
+                (EventKind::Read, true),
+                (EventKind::Write, true),
+                (EventKind::Shutdown, false),
+                (EventKind::Drop, false),
+                (EventKind::Error, false),
+                (EventKind::Drop, false),
             ]
         );
     }
@@ -1003,7 +993,7 @@ mod tests {
             CountingFormatter(Arc::clone(&format_calls)),
             AllFilter::new(vec![
                 Box::new(CountingFilter(Arc::clone(&check_calls))),
-                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+                Box::new(EventKindFilter::new(&[EventKind::Read])),
             ]),
             MemoryStorageLogger::new(16),
         );
@@ -1026,7 +1016,7 @@ mod tests {
             Cursor::new(Vec::<u8>::new()),
             CountingFormatter(Arc::clone(&format_calls)),
             AllFilter::new(vec![
-                Box::new(RecordKindFilter::new(&[RecordKind::Read])),
+                Box::new(EventKindFilter::new(&[EventKind::Read])),
                 Box::new(CountingFilter(Arc::clone(&check_calls))),
             ]),
             MemoryStorageLogger::new(16),
@@ -1173,7 +1163,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Error);
+        assert_eq!(records[0].kind, EventKind::Error);
         assert!(records[0].message.starts_with("Error during read:"));
     }
 
@@ -1182,7 +1172,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             ErrReader(ErrorKind::Other),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Read, EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -1221,7 +1211,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Error);
+        assert_eq!(records[0].kind, EventKind::Error);
         assert!(records[0].message.starts_with("Error during write:"));
     }
 
@@ -1230,7 +1220,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             ErrWriter(ErrorKind::Other),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Read, EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -1283,7 +1273,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Open);
+        assert_eq!(records[0].kind, EventKind::Open);
         assert_eq!(
             records[0].message,
             "Established connection with 127.0.0.1:8080"
@@ -1295,14 +1285,14 @@ mod tests {
         let mut stream = LoggedStream::new(
             Cursor::new(Vec::<u8>::new()),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Open]),
+            EventKindFilter::new(&[EventKind::Open]),
             MemoryStorageLogger::new(16),
         );
         stream.log_open("kept");
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Open);
+        assert_eq!(records[0].kind, EventKind::Open);
         assert_eq!(records[0].message, "kept");
     }
 
@@ -1311,7 +1301,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             Cursor::new(Vec::<u8>::new()),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Read, EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
         stream.log_open("should be filtered out");
@@ -1338,7 +1328,7 @@ mod tests {
         let record = receiver
             .recv()
             .expect("dropping the stream should emit a record");
-        assert_eq!(record.kind, RecordKind::Drop);
+        assert_eq!(record.kind, EventKind::Drop);
         assert_eq!(record.message, "Deallocated.");
     }
 
@@ -1358,7 +1348,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Shutdown);
+        assert_eq!(records[0].kind, EventKind::Shutdown);
         assert_eq!(records[0].message, "Writer shutdown request.");
     }
 
@@ -1387,7 +1377,7 @@ mod tests {
         assert_eq!(buf, [0xaa, 0xbb]);
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Read);
+        assert_eq!(records[0].kind, EventKind::Read);
         assert_eq!(records[0].message, "aa:bb");
     }
 
@@ -1407,7 +1397,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Write);
+        assert_eq!(records[0].kind, EventKind::Write);
         assert_eq!(records[0].message, "01:02:03:04");
     }
 
@@ -1418,7 +1408,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             ErrAsyncReader(ErrorKind::Other),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Read, EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -1435,7 +1425,7 @@ mod tests {
         let mut stream = LoggedStream::new(
             ErrAsyncWriter(ErrorKind::Other),
             LowercaseHexadecimalFormatter::new_default(),
-            RecordKindFilter::new(&[RecordKind::Read, RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Read, EventKind::Write]),
             MemoryStorageLogger::new(16),
         );
 
@@ -1460,7 +1450,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Error);
+        assert_eq!(records[0].kind, EventKind::Error);
         assert!(records[0].message.starts_with("Error during async read:"));
     }
 
@@ -1479,7 +1469,7 @@ mod tests {
 
         let records = stream.get_log_records();
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].kind, RecordKind::Error);
+        assert_eq!(records[0].kind, EventKind::Error);
         assert!(records[0].message.starts_with("Error during async write:"));
     }
 
@@ -1518,7 +1508,7 @@ mod tests {
         stream.read_exact(&mut buf).unwrap();
 
         let record = receiver.recv().unwrap();
-        assert_eq!(record.kind, RecordKind::Read);
+        assert_eq!(record.kind, EventKind::Read);
         assert_eq!(record.message, "01:02");
     }
 

@@ -1,4 +1,4 @@
-use crate::RecordKind;
+use crate::EventKind;
 use crate::record::Record;
 use std::borrow::Cow;
 use std::collections;
@@ -18,12 +18,12 @@ use std::sync::mpsc;
 /// This trait allows processing log records ([`Record`]) using the [`log`] method. It should be implemented for
 /// structures intended to be used as the logging component within [`LoggedStream`]. The [`log`] method is called
 /// by [`LoggedStream`] for further log record processing (e.g., writing to the console, memory, or database)
-/// after the log record message has been formatted by an implementation of [`BufferFormatter`] and filtered
-/// by an implementation of [`RecordFilter`].
+/// after the event has been accepted by an implementation of [`EventFilter`] and its message has been formatted
+/// by an implementation of [`BufferFormatter`].
 ///
 /// [`log`]: Logger::log
 /// [`LoggedStream`]: crate::LoggedStream
-/// [`RecordFilter`]: crate::RecordFilter
+/// [`EventFilter`]: crate::EventFilter
 /// [`BufferFormatter`]: crate::BufferFormatter
 pub trait Logger: Send + 'static {
     fn log(&mut self, record: Record);
@@ -46,11 +46,11 @@ impl Logger for Box<dyn Logger> {
 /// with [`log::Level::Error`].
 ///
 /// Optionally, a prefix can be configured via [`with_prefix`] or [`set_prefix`]. When set, it is printed
-/// verbatim at the beginning of every log line, before the record kind character. This is useful to
+/// verbatim at the beginning of every log line, before the event kind character. This is useful to
 /// disambiguate output when several [`LoggedStream`]s (for example one per connection) log to the same
 /// console. No prefix is configured by default.
 ///
-/// [`Error`]: crate::RecordKind::Error
+/// [`Error`]: crate::EventKind::Error
 /// [`with_prefix`]: ConsoleLogger::with_prefix
 /// [`set_prefix`]: ConsoleLogger::set_prefix
 /// [`LoggedStream`]: crate::LoggedStream
@@ -84,7 +84,7 @@ impl ConsoleLogger {
     /// Set a prefix that will be printed at the beginning of every log line produced by this logger, and
     /// return the modified logger. This is a chainable builder method.
     ///
-    /// The prefix is rendered verbatim immediately before the record kind character — no separator is
+    /// The prefix is rendered verbatim immediately before the event kind character — no separator is
     /// inserted between them — so include any trailing separator you want yourself (for example a trailing
     /// space or brackets). An empty prefix therefore produces the same output as no prefix at all.
     ///
@@ -124,7 +124,7 @@ impl ConsoleLogger {
 impl Logger for ConsoleLogger {
     fn log(&mut self, record: Record) {
         let level = match record.kind {
-            RecordKind::Error => log::Level::Error,
+            EventKind::Error => log::Level::Error,
             _ => self.level,
         };
         // Format the record straight into the `log::log!` arguments instead of building an
@@ -269,7 +269,7 @@ impl Logger for Box<ChannelLogger> {
 /// record, in the form `[timestamp] {kind} {message}`.
 ///
 /// Optionally, a prefix can be configured via [`with_prefix`] or [`set_prefix`]. When set, it is written
-/// verbatim immediately before the record kind character — that is, after the timestamp — which mirrors
+/// verbatim immediately before the event kind character — that is, after the timestamp — which mirrors
 /// how [`ConsoleLogger`] renders its prefix relative to the timestamp emitted by the logging backend. This
 /// is useful to disambiguate output when several [`LoggedStream`]s (for example one per connection) write
 /// to the same file. No prefix is configured by default.
@@ -334,10 +334,10 @@ impl FileLogger {
         Ok(Self::new(file))
     }
 
-    /// Set a prefix that will be written before the record kind character of every line produced by this
+    /// Set a prefix that will be written before the event kind character of every line produced by this
     /// logger, and return the modified logger. This is a chainable builder method.
     ///
-    /// The prefix is written verbatim between the timestamp and the record kind character — no separator
+    /// The prefix is written verbatim between the timestamp and the event kind character — no separator
     /// is inserted between the prefix and the kind — so include any trailing separator you want yourself
     /// (for example a trailing space or brackets). An empty prefix therefore produces the same output as
     /// no prefix at all.
@@ -358,7 +358,7 @@ impl FileLogger {
         self
     }
 
-    /// Set or replace the prefix written before the record kind character of every line produced by this
+    /// Set or replace the prefix written before the event kind character of every line produced by this
     /// logger, in place. See [`with_prefix`] for details on how the prefix is rendered.
     ///
     /// [`with_prefix`]: FileLogger::with_prefix
@@ -418,13 +418,13 @@ impl Logger for Box<FileLogger> {
 
 #[cfg(test)]
 mod tests {
+    use crate::event::EventKind;
     use crate::logger::ChannelLogger;
     use crate::logger::ConsoleLogger;
     use crate::logger::FileLogger;
     use crate::logger::Logger;
     use crate::logger::MemoryStorageLogger;
     use crate::record::Record;
-    use crate::record::RecordKind;
     use std::cell::RefCell;
     use std::fs;
     use std::path::PathBuf;
@@ -534,16 +534,16 @@ mod tests {
         let mut logger = ConsoleLogger::new_unchecked("debug");
 
         // Without a prefix, the emitted line matches the historical `"{kind} {message}"` format.
-        logger.log(Record::new(RecordKind::Write, String::from("ab:cd")));
+        logger.log(Record::new(EventKind::Write, String::from("ab:cd")));
 
-        // With a prefix, it is prepended verbatim, before the record kind character.
+        // With a prefix, it is prepended verbatim, before the event kind character.
         logger.set_prefix("[conn 5] ");
-        logger.log(Record::new(RecordKind::Read, String::from("01:02")));
+        logger.log(Record::new(EventKind::Read, String::from("01:02")));
 
         // After clearing, subsequent lines are emitted without any prefix again.
         logger.clear_prefix();
         logger.log(Record::new(
-            RecordKind::Shutdown,
+            EventKind::Shutdown,
             String::from("Writer shutdown request."),
         ));
 
@@ -564,12 +564,12 @@ mod tests {
         // The logger is configured at Debug, below Error. Non-error records are emitted at the
         // configured level, but Error records are always forced to `log::Level::Error`.
         let mut logger = ConsoleLogger::new_unchecked("debug");
-        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
-        logger.log(Record::new(RecordKind::Error, String::from("boom")));
+        logger.log(Record::new(EventKind::Write, String::from("01:02")));
+        logger.log(Record::new(EventKind::Error, String::from("boom")));
 
         // A prefix does not change the forced Error level.
         logger.set_prefix("[conn 5] ");
-        logger.log(Record::new(RecordKind::Error, String::from("kaboom")));
+        logger.log(Record::new(EventKind::Error, String::from("kaboom")));
 
         assert_eq!(
             captured_records(),
@@ -587,10 +587,10 @@ mod tests {
 
         let mut logger = ConsoleLogger::new_unchecked("debug");
         // No prefix.
-        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
+        logger.log(Record::new(EventKind::Write, String::from("01:02")));
         // Empty prefix — documented to produce the same output as no prefix at all.
         logger.set_prefix("");
-        logger.log(Record::new(RecordKind::Write, String::from("01:02")));
+        logger.log(Record::new(EventKind::Write, String::from("01:02")));
 
         let lines = captured_lines();
         assert_eq!(lines.len(), 2);
@@ -661,16 +661,16 @@ mod tests {
         let mut logger = FileLogger::open(&path).unwrap();
 
         // Without a prefix, the line keeps the historical `[timestamp] {kind} {message}` shape.
-        logger.log(Record::new(RecordKind::Write, String::from("ab:cd")));
+        logger.log(Record::new(EventKind::Write, String::from("ab:cd")));
 
         // With a prefix, it is written after the timestamp, immediately before the kind character.
         logger.set_prefix("[conn 5] ");
-        logger.log(Record::new(RecordKind::Read, String::from("01:02")));
+        logger.log(Record::new(EventKind::Read, String::from("01:02")));
 
         // After clearing, subsequent lines are written without any prefix again.
         logger.clear_prefix();
         logger.log(Record::new(
-            RecordKind::Shutdown,
+            EventKind::Shutdown,
             String::from("Writer shutdown request."),
         ));
 
@@ -719,7 +719,7 @@ mod tests {
                     .with_prefix(format!("[conn {thread_index}] "));
                 barrier.wait();
                 for _ in 0..RECORDS {
-                    logger.log(Record::new(RecordKind::Write, payload.clone()));
+                    logger.log(Record::new(EventKind::Write, payload.clone()));
                 }
             }));
         }
@@ -794,7 +794,7 @@ mod tests {
         let path = temp_log_path("object-safety");
         let mut file: Box<dyn Logger> = Box::new(FileLogger::open(&path).unwrap());
 
-        let record = Record::new(RecordKind::Open, String::from("test log record"));
+        let record = Record::new(EventKind::Open, String::from("test log record"));
 
         // Assert that trait object methods are dispatchable.
         console.log(record.clone());
