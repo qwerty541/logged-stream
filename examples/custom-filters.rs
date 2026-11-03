@@ -1,10 +1,10 @@
 use logged_stream::BufferFormatter;
 use logged_stream::Event;
+use logged_stream::EventFilter;
+use logged_stream::EventKind;
 use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
 use logged_stream::MemoryStorageLogger;
-use logged_stream::RecordFilter;
-use logged_stream::RecordKind;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -25,12 +25,12 @@ const MESSAGES: [[u8; 4]; 6] = [
 /// because it matches the same text you see in the log. Every read and write is formatted for it.
 struct HideHeartbeats;
 
-impl RecordFilter for HideHeartbeats {
+impl EventFilter for HideHeartbeats {
     fn check(&self, event: &Event<'_>) -> bool {
         let record = event.record();
         match record.kind {
             // A heartbeat's first byte, 0x01, shows up in the log as "01".
-            RecordKind::Read | RecordKind::Write => !record.message.starts_with("01"),
+            EventKind::Read | EventKind::Write => !record.message.starts_with("01"),
             // Keep errors, shutdowns, drops and opens.
             _ => true,
         }
@@ -41,7 +41,7 @@ impl RecordFilter for HideHeartbeats {
 /// writes it rejects are never formatted, which pays off on busy streams.
 struct HideHeartbeatsRaw;
 
-impl RecordFilter for HideHeartbeatsRaw {
+impl EventFilter for HideHeartbeatsRaw {
     fn check(&self, event: &Event<'_>) -> bool {
         match event.bytes() {
             Some(bytes) => bytes.first() != Some(&0x01),
@@ -74,7 +74,7 @@ impl BufferFormatter for CountingFormatter {
 }
 
 /// This example demonstrates two ways to write a filter of your own: judging the formatted record,
-/// or judging the raw bytes. Both filters keep the same records.
+/// or judging the raw bytes. Both filters keep the same events.
 fn main() {
     println!("=== Custom Filters Example ===\n");
     println!("A client sends 6 messages; the filters hide the 4 heartbeats (first byte 0x01).\n");
@@ -92,7 +92,7 @@ fn main() {
 
 /// Sends the messages through a `LoggedStream` that uses `filter`, then prints the records it kept
 /// and how many of the writes were formatted.
-fn send_messages(filter: impl RecordFilter) {
+fn send_messages(filter: impl EventFilter) {
     let formatted = Arc::new(AtomicUsize::new(0));
     let mut stream = LoggedStream::new(
         // An in-memory buffer stands in for a socket.
