@@ -49,7 +49,7 @@ enum Inner<'a> {
         formatter: &'a dyn BufferFormatter,
         record: OnceCell<Record>,
     },
-    /// Any other event, whose record exists before the filter runs.
+    /// An event without bytes, whose record exists before the filter runs.
     Message(Record),
 }
 

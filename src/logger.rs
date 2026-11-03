@@ -18,8 +18,8 @@ use std::sync::mpsc;
 /// This trait allows processing log records ([`Record`]) using the [`log`] method. It should be implemented for
 /// structures intended to be used as the logging component within [`LoggedStream`]. The [`log`] method is called
 /// by [`LoggedStream`] for further log record processing (e.g., writing to the console, memory, or database)
-/// after the event has been accepted by an implementation of [`EventFilter`] and its message has been formatted
-/// by an implementation of [`BufferFormatter`].
+/// after the event has been accepted by an implementation of [`EventFilter`] and, for a read or write, its bytes
+/// have been formatted by an implementation of [`BufferFormatter`].
 ///
 /// [`log`]: Logger::log
 /// [`LoggedStream`]: crate::LoggedStream
@@ -561,7 +561,7 @@ mod tests {
     fn test_console_logger_forces_error_level() {
         install_capturing_logger();
 
-        // The logger is configured at Debug, below Error. Non-error records are emitted at the
+        // The logger is configured at Debug, below Error. Non-error records are logged at the
         // configured level, but Error records are always forced to `log::Level::Error`.
         let mut logger = ConsoleLogger::new_unchecked("debug");
         logger.log(Record::new(EventKind::Write, String::from("01:02")));

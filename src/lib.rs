@@ -62,7 +62,7 @@
 //!
 //! | Logger | Destination |
 //! | --- | --- |
-//! | [`ConsoleLogger`] | Emits records through the `log` facade. |
+//! | [`ConsoleLogger`] | Forwards records to the `log` facade. |
 //! | [`FileLogger`] | Writes records to a file, one line per record. |
 //! | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
 //! | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |

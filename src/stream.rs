@@ -81,7 +81,7 @@ use tokio::io as tokio_io;
 ///
 /// | Logger | Destination |
 /// | --- | --- |
-/// | [`ConsoleLogger`] | Emits records through the `log` facade. |
+/// | [`ConsoleLogger`] | Forwards records to the `log` facade. |
 /// | [`FileLogger`] | Writes records to a file, one line per record. |
 /// | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
 /// | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
@@ -1262,7 +1262,7 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    fn test_log_open_emits_open_record() {
+    fn test_log_open_logs_open_record() {
         let mut stream = LoggedStream::new(
             Cursor::new(Vec::<u8>::new()),
             LowercaseHexadecimalFormatter::new_default(),
@@ -1327,7 +1327,7 @@ mod tests {
 
         let record = receiver
             .recv()
-            .expect("dropping the stream should emit a record");
+            .expect("dropping the stream should log a record");
         assert_eq!(record.kind, EventKind::Drop);
         assert_eq!(record.message, "Deallocated.");
     }

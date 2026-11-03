@@ -76,7 +76,7 @@ async fn main() {
     let mut response = [0u8; 4];
     client.read_exact(&mut response).await.unwrap();
 
-    // Dropping `client` at the end of this function emits the `Drop` record ("Deallocated.") through
+    // Dropping `client` at the end of this function logs the `Drop` record ("Deallocated.") through
     // the same logger, so the connection's last line is written here too.
     drop(client);
 
