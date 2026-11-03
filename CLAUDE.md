@@ -60,28 +60,38 @@ and its record, which for a read or write is formatted lazily: only when a filte
 - **Loggers:** `ConsoleLogger` (via `log` facade), `MemoryStorageLogger` (bounded
   `VecDeque`), `ChannelLogger` (`mpsc`), `FileLogger` (writes to a file; `open` opens a
   path in append mode). `ConsoleLogger` and `FileLogger` — the two that *render* records
-  into text — support an optional per-instance line prefix via `with_prefix`/`set_prefix`,
-  `None` by default; `MemoryStorageLogger`/`ChannelLogger` pass the `Record` struct through
-  untouched and deliberately have no prefix.
+  into text — support an optional per-instance line prefix (`with_prefix`, `set_prefix`,
+  `clear_prefix`, `prefix`), `None` by default. Both write it **verbatim**, right before the
+  event kind character, with no separator of their own, so an empty prefix prints exactly like
+  none — deliberately: do not add automatic spacing or trimming. `MemoryStorageLogger`/
+  `ChannelLogger` pass the `Record` struct through untouched and deliberately have no prefix.
 
 ### Real-world usage (downstream reference)
 
 The author's own [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) CLI
-(crates.io: `logged_tcp_proxy`) is the canonical consumer and the clearest mental model
-for what this library is *for*: a transparent TCP man-in-the-middle that relays bytes
-unchanged and prints the payload of each connection. It exercises the intended patterns:
+(crates.io: `logged_tcp_proxy`, on `logged-stream` 0.8) is the canonical consumer and the
+clearest mental model for what this library is *for*: a transparent TCP man-in-the-middle that
+relays bytes unchanged and prints the payload of each connection. It exercises the intended
+patterns:
 
 - Wrap a `tokio::net::TcpStream` in `LoggedStream::new(stream, formatter, filter, logger)`,
   then `tokio::io::split(...)` the wrapper into read/write halves — the `AsyncRead +
   AsyncWrite` impls carry logging transparently through a bidirectional relay.
 - Select a formatter at runtime as a `Box<dyn BufferFormatter>` (driven by a CLI flag),
-  passing a user-supplied separator via `Formatter::new(Some(sep))` — precisely why the
-  traits are object-safe and `new` takes `Option<&str>`.
-- Run **two `LoggedStream`s per connection** to avoid double-logging: the client side uses
-  `DefaultFilter` (payload + lifecycle), while the server side uses
-  `EventKindFilter::new(&[Drop, Error, Shutdown])` to keep lifecycle events but suppress
-  the duplicate `Read`/`Write` payload — a deliberate use of the "filters run on every
+  passing a user-supplied separator via `Formatter::new(Some(sep))` — precisely why
+  `BufferFormatter` is object-safe and `new` takes `Option<&str>`.
+- Run **two `LoggedStream`s per connection**, both filtered by `EventKindFilter` (`RecordKindFilter`
+  in the 0.8 it pins), so each byte is logged once: the client side keeps `&[Read, Write, Error]`,
+  the server side only `&[Error]`. Neither keeps `Shutdown` or `Drop` (the proxy prints its own
+  close lines), and both list `Error` explicitly — a deliberate use of the "filters run on every
   event kind" behavior noted below.
+- Tag both streams of a connection with one prefix
+  (`ConsoleLogger::new_unchecked("debug").with_prefix(...)`, e.g. `"[#1] "`, or `""` under
+  `--no-connection-ids`), relying on the verbatim prefix rendering described above.
+
+Its tests and CI scripts pin that console output — each formatter's rendering and separator, the
+prefix placement, the `<` `>` `!` markers and the error text (`[#1] ! Error during async read`) —
+so changing any of these is user-visible downstream, not a refactor.
 
 ## Conventions and invariants to preserve
 
@@ -89,14 +99,21 @@ These are load-bearing — breaking them is a breaking API change and must be re
 tests, docs, and the changelog.
 
 - **Trait bounds:** `BufferFormatter`, `EventFilter`, and `Logger` are all
-  `Send + 'static` and **object-safe**. Each has a blanket impl for `Box<...>`
-  (and `BufferFormatter` also for `Arc<T>`), so trait objects work everywhere.
-  The test modules assert `Send` / `Unpin` / object-safety / `Box` for every type —
-  keep those assertions passing when adding a new implementation.
-- **Adding a new formatter/filter/logger:** implement the trait, add a `Box<...>`
-  blanket-compatible impl if the pattern calls for it, re-export it from
-  [lib.rs](src/lib.rs), and mirror the existing test coverage (`Send`, `Unpin`,
-  object-safety, behavior).
+  `Send + 'static` and **object-safe**, and `Box<dyn ...>` of each implements its trait. Only
+  `EventFilter` has a generic blanket impl (`impl<T: EventFilter + ?Sized> EventFilter for
+  Box<T>`); `BufferFormatter` and `Logger` have one `Box<Concrete>` impl per provided type, so a
+  `Box` of any other formatter or logger implements nothing until that impl is added.
+  `BufferFormatter` is also implemented for `Arc<T>` where `T: Sync`. The test modules assert
+  `Send`, `Unpin`, object safety and `Box` (`test_send`, `test_unpin`,
+  `test_trait_object_safety`, `test_box`) for every provided formatter, filter and logger, plus
+  `Arc` for the formatters (`test_arc`) and `Debug` for the filters (`test_debug`) — keep those
+  assertions passing when adding a new implementation.
+- **Adding a new formatter/filter/logger:** implement the trait, re-export it from
+  [lib.rs](src/lib.rs), and mirror the existing test coverage (the assertions above, plus
+  behavior). `Box` support differs per trait: a filter gets it from the generic impl (a per-type
+  impl would be E0119); a logger needs its own `impl Logger for Box<NewLogger>`, as the provided
+  ones have; a formatter built with `define_formatter!` gets one from the macro, while a
+  hand-written one must add it, forwarding every method, `format_buffer` included.
 - **`EventFilter::fmt_debug`:** composite filters render children through this hook.
   A new filter with meaningful state should override it (defaults to `"UnknownFilter"`).
 - **Event and record are two different things — keep the words apart.** An *event*
@@ -136,25 +153,34 @@ tests, docs, and the changelog.
   makes that decision per event at runtime instead.
 - **Import style:** `rustfmt.toml` sets `imports_granularity = "Item"` — **one `use`
   per line, no brace-grouped imports** — and `use_field_init_shorthand = true`. Match
-  the surrounding files exactly; `cargo fmt` enforces this.
+  the surrounding files exactly. `use_field_init_shorthand` is stable, but `imports_granularity`
+  is unstable and only a **nightly** rustfmt applies it: stable and beta print "Warning: can't set
+  `imports_granularity = Item`, unstable features are only available in nightly channel." and
+  leave grouped imports alone, still exiting 0. So format with `cargo +nightly fmt --all`; in CI
+  only the nightly cell of the fmt job rejects a grouped import. The stable/beta warning is
+  expected — keep the option, and don't try to silence it.
 - **Docs are duplicated on purpose:** the crate-level overview appears in both
   [lib.rs](src/lib.rs) and on the `LoggedStream` type in [stream.rs](src/stream.rs), and is
   mirrored in prose in [README.md](README.md). All three share the same shape — an *Architecture*
   overview plus *Provided implementations* tables of formatters/filters/loggers. If you change the
-  list of implementations or the four-part description, update **all three** and keep that
-  structure in sync. The README additionally carries a *Custom implementations* section (with a
-  worked code example) that is intentionally **README-only**; only its short "implement your own
-  trait" closing note is mirrored into the rustdoc — do not try to sync the whole section.
+  list of implementations or the four-part description, update **all three** (and the names in
+  this file's *Module map* and *Provided implementations*) and keep the three copies' structure in
+  sync, down to the short "implement the trait yourself" note that closes *Provided
+  implementations* in each. The README section after it, *Custom implementations* (with a worked
+  code example), is intentionally **README-only** — do not try to sync it into the rustdoc.
 - **Command and example lists are duplicated too:** the runnable commands appear under *Common
-  commands* here **and** in the *Development Setup* sections of
-  [CONTRIBUTING.md](CONTRIBUTING.md); the list of examples appears in both of those, plus
-  [README.md](README.md), plus `[[example]]` entries in [Cargo.toml](Cargo.toml). These drift
-  silently, because the change that invalidates them usually lives outside `src/` — the
-  `composite-filters` example went unlisted in CONTRIBUTING.md for several releases. Update every
-  copy together. One divergence is **deliberate**: CONTRIBUTING.md omits `--all-features` from its
-  `clippy` line because the crate has no Cargo features (commit `8b2793a`) — do not "fix" it back.
-  `--all-targets` is the opposite case: it belongs in both copies and must stay in sync, because
-  it changes *what gets linted*, not just how the command is spelled.
+  commands* here (the five check commands again in the *Definition of Done* list) **and** in the
+  *Development Setup* sections of [CONTRIBUTING.md](CONTRIBUTING.md); the list of examples
+  appears in both of those, plus [README.md](README.md), plus `[[example]]` entries in
+  [Cargo.toml](Cargo.toml). These drift silently, because the change that invalidates them
+  usually lives outside `src/` — the `composite-filters` example went unlisted in CONTRIBUTING.md
+  for several releases. Update every copy together. One divergence is **deliberate**:
+  CONTRIBUTING.md never passes `--all-features`, because the crate has no Cargo features (commit
+  `8b2793a` dropped it from the `clippy` line; the `cargo doc` line never had it), while this
+  file copies its `clippy` and `cargo doc` lines verbatim from `check.yml` and `docs.yml` — do not
+  add the flag there or drop it here. `--all-targets` is the opposite case: it changes *what gets
+  built or linted*, not just how the command is spelled, so it belongs in every copy of the
+  `cargo build` and `cargo clippy` lines.
 
 ### Behavioral gotchas
 
@@ -162,9 +188,19 @@ tests, docs, and the changelog.
   only produces `Read`, `Write`, `Shutdown`, `Drop` (`"Deallocated."`) and `Error`. `Open` is
   emitted solely when the user calls `LoggedStream::log_open(message)` to emit a manual marker
   (e.g. connection start); it passes through the filter like any other event.
-- **Errors are partly swallowed:** sync `read` ignores `WouldBlock`; sync `write`
-  ignores `WriteZero | WouldBlock`; async paths treat `Poll::Pending` / zero-length
-  reads as non-events. Only "real" errors produce an `Error` event.
+- **Errors are partly swallowed.** Only the sync paths have skip lists: sync `read` skips
+  `WouldBlock` and sync `write` skips `WriteZero | WouldBlock`; every other read or write error,
+  `Interrupted` included, becomes an `Error` event, and `poll_read`/`poll_write` skip no error
+  kind at all. `flush`/`poll_flush` pass straight through and log nothing, failures included.
+  Errors that `read_exact`/`write_all` create above the wrapper (`UnexpectedEof`, `WriteZero`)
+  never pass through it, so they are not logged either.
+- **Pending, empty and shutdown IO.** `Poll::Pending` from `poll_read`/`poll_write`, and an async
+  read that adds nothing, are non-events; a sync read of 0 bytes and any write of 0 bytes, sync or
+  async, are events (`bytes()` is `Some(&[])`, and an accepted one logs an empty message).
+  `poll_shutdown` is the exception: it emits `Shutdown` (`"Writer shutdown request."`) after
+  every poll whatever the inner result — once per `Pending` poll, and `Shutdown` rather than
+  `Error` when the shutdown fails — although the README and the `EventKind::Shutdown` docs
+  describe it as a completed shutdown.
 - **Filter runs on every event kind**, including `Error`, `Shutdown` and `Drop` — an
   `EventKindFilter` that omits a kind will suppress its log lines. Every event reaches `check`
   through one of two private helpers, so the filter is applied uniformly: `LoggedStream::emit`
@@ -181,8 +217,10 @@ tests, docs, and the changelog.
   lets concurrent loggers sharing a file splice their lines together. Keep the render-then-
   write-once shape, and note it is the *opposite* trade-off from `ConsoleLogger`, which
   formats directly into `log::log!` arguments because the logging backend buffers and locks.
-  Sharing one file additionally requires **append** mode (`FileLogger::open`, or a
-  `File::try_clone`); independently opened non-append handles silently overwrite each other.
+  Sharing one file additionally requires that no logger writes from a private offset: open it in
+  **append** mode (`FileLogger::open`), or give every logger a `File::try_clone` of one handle,
+  which shares that handle's offset; independently opened non-append handles each keep their own
+  offset and silently overwrite each other.
 
 ## Common commands
 
@@ -190,7 +228,8 @@ tests, docs, and the changelog.
 # Build (all targets: lib, examples, benches)
 cargo build --all-targets
 
-# Tests (lib unit tests + example/bench compile) — CI runs this
+# Tests — CI runs this: the lib unit tests, each example's (empty) test harness, and every
+# Criterion benchmark once in test mode, so a benchmark that panics already fails here
 cargo test --lib --examples --benches
 # Doctests are NOT covered by the line above (cargo skips them once a target-selecting
 # option is passed, and `--doc` cannot be mixed with those options), so they need their
@@ -208,11 +247,14 @@ cargo llvm-cov
 # those are linted at all. Doctests stay out of reach; clippy never sees them.
 cargo clippy --all-features --all-targets -- -D warnings
 
-# Format
-cargo fmt --all            # apply
-cargo fmt --check          # verify (CI uses this)
+# Format — on nightly: `imports_granularity` is unstable, so stable and beta rustfmt skip it with
+# a warning and still pass (see *Import style*); CI runs `cargo fmt --check` on stable, beta and
+# nightly. One-off setup: rustup toolchain install nightly --profile minimal --component rustfmt
+cargo +nightly fmt --all            # apply
+cargo +nightly fmt --check          # verify (the CI cell that enforces the import rule)
 
-# Docs (as built for GitHub Pages, on nightly)
+# Docs (docs.yml builds this on nightly for GitHub Pages after each push to master, so add
+# +nightly to reproduce it; PRs never build docs, so no CI job fails on a rustdoc warning)
 cargo doc --no-deps --all-features
 
 # Examples
@@ -222,7 +264,9 @@ cargo run --example file-logger
 cargo run --example shared-file-logger
 cargo run --example composite-filters
 cargo run --example custom-filters
-RUST_LOG=debug cargo run --example tcp-stream-console-logger   # control verbosity
+# The examples pin the global log level to debug, so a bare `RUST_LOG=info` changes nothing;
+# a module-scoped directive does (this one hides the payload lines):
+RUST_LOG=logged_stream=info cargo run --example tcp-stream-console-logger
 
 # Benchmarks (Criterion; harness = false)
 cargo bench
@@ -233,20 +277,29 @@ cargo bench --bench stream   # LoggedStream end to end: formatted vs raw filteri
 
 CI ([.github/workflows/check.yml](.github/workflows/check.yml)) runs clippy on ubuntu across
 `{stable, beta, nightly}` — with `--all-targets`, so the examples, the benches and the inline
-`#[cfg(test)]` modules are linted alongside the lib — fmt on ubuntu/stable, and
-build+test+doctests+bench across `{ubuntu, macos, windows} × {stable, beta, nightly}`, plus an
-MSRV check (`cargo msrv find`) and a **coverage** job (ubuntu/stable,
-[cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), no cache — it is not on the
-critical path). Coverage is *reported, never gated*: the per-file table is appended to the
+`#[cfg(test)]` modules are linted alongside the lib — `cargo fmt --check` on ubuntu across the
+same `{stable, beta, nightly}` (only the nightly cell enforces `imports_granularity`; see *Import
+style*), and build+test+doctests+bench across `{ubuntu, macos, windows} × {stable, beta,
+nightly}`, plus an MSRV *report* (`cargo msrv find`, see below) and a **coverage** job
+(ubuntu/stable, [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), no cache — it is not
+on the critical path). Coverage is *reported, never gated*: the per-file table is appended to the
 job's step summary, there is no `--fail-under`, and the job fails only if the tests do. Two
 things to keep in mind when reading it: cargo-llvm-cov runs `cargo test --tests`, so only
 the lib unit tests are measured (doctests are neither run nor counted there); and because
 the tests are inline `#[cfg(test)]` modules, the test code itself is instrumented and
-included in the percentages — cargo-llvm-cov excludes only `tests/`, `examples/`,
-`benches/` directories and `tests.rs` / `*_tests.rs` files by default. Keep changes green
-on **stable** at minimum; avoid nightly-only features. Avoid raising the MSRV without
-discussion — if it must change, update `rust-version` in [Cargo.toml](Cargo.toml), the
-badge in [README.md](README.md), and note it in the changelog.
+included in the percentages — of the crate's own files, cargo-llvm-cov's default ignore regex
+drops only `tests/`, `examples/` and `benches/` directories and `tests.rs` / `*_tests.rs` /
+`*-tests.rs` files. Keep changes green on **stable** at minimum, and keep nightly-only language
+and library features out of the code (the nightly-only rustfmt option is the one deliberate
+exception). Avoid raising the MSRV without discussion, and don't count on CI to notice one:
+`cargo msrv find` only reports — it bisects upward from the 2024 edition's first release (1.85.1,
+the latest 1.85 patch) and passes as long as any release builds, never comparing the result with
+`rust-version` — and clippy's `incompatible_msrv` lint catches only std items newer than
+`rust-version`. So after adding or bumping a dependency, or using a recent language feature, run
+`cargo +1.85.1 check` if that toolchain is installed. If the MSRV must change, update
+`rust-version` in [Cargo.toml](Cargo.toml), both the badge and the "requires **Rust … or
+newer**" sentence in [README.md](README.md), the MSRV line in [CONTRIBUTING.md](CONTRIBUTING.md)
+and the one at the top of this file, and note it in the changelog.
 
 ## Definition of Done
 
@@ -269,10 +322,12 @@ which items are relevant, but do not skip an applicable one silently — call it
    in a row for a change that in fact touches all three. Changes **outside `src/`** are missed most
    often, because no document obviously belongs to them. So also work these triggers from the
    change itself:
-   - Edited `.github/workflows/*.yml`, or changed any command CI runs → update *Common commands*
-     **and** the CI paragraph here, **and** the matching section of
-     [CONTRIBUTING.md](CONTRIBUTING.md) — which is *Testing* for a test command but
-     *Linting & Formatting* for a clippy or fmt one, so follow the command, not the heading.
+   - Edited `.github/workflows/*.yml` or `rustfmt.toml`, or changed a command CI runs or the
+     toolchains it runs it on (a matrix change counts even when no command's text changes) →
+     update *Common commands*, the *Definition of Done* list **and** the CI paragraph here,
+     **and** the matching section of [CONTRIBUTING.md](CONTRIBUTING.md) — *Testing* for a test
+     command, *Linting & Formatting* for a clippy or fmt one, *Toolchain and MSRV* for the MSRV
+     job — so follow the command, not the heading.
    - Added, renamed or removed an example → update the `[[example]]` entry in
      [Cargo.toml](Cargo.toml) **and** the example lists in all three of CLAUDE.md,
      [CONTRIBUTING.md](CONTRIBUTING.md) and [README.md](README.md).
@@ -291,8 +346,11 @@ which items are relevant, but do not skip an applicable one silently — call it
    cargo test --lib --examples --benches
    cargo test --doc
    cargo clippy --all-features --all-targets -- -D warnings
-   cargo fmt --check
+   cargo +nightly fmt --check
    ```
+   Plain `cargo` runs the active toolchain (`rustup show active-toolchain`), which a rustup
+   override, a `rust-toolchain.toml` or `RUSTUP_TOOLCHAIN` can make something other than stable;
+   CI's minimum bar is stable, so then run the first four with `cargo +stable` as well.
    Fix issues rather than suppressing them; avoid broad `#[allow(...)]` attributes
    without a strong, stated reason.
 
