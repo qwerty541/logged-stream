@@ -249,7 +249,7 @@ Consume the record of each accepted event.
 
 | Logger | Destination |
 | --- | --- |
-| `ConsoleLogger` | Emits records through the `log` facade. |
+| `ConsoleLogger` | Forwards records to the `log` facade. |
 | `FileLogger` | Writes records to a file, one line per record. |
 | `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
 | `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
@@ -305,13 +305,13 @@ Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` an
 
 ## Use cases
 
-`LoggedStream` hands you a formatted, filterable, timestamped record of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
+`LoggedStream` hands you a formatted, filterable, timestamped log of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
 
--   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to record every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
+-   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to log every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
 -   **I/O debugging** — see the exact bytes moving through a file, socket, or any custom stream, alongside the errors, shutdowns, and drops around them, to pin down data corruption or where a connection unexpectedly closed.
 -   **Protocol and application-traffic capture** — log the raw wire traffic of a protocol you are implementing or reverse-engineering, such as a database driver, an RPC channel, or a custom binary format. `LoggedStream` captures the bytes; decode or parse them downstream if you need higher-level detail like SQL statements.
 -   **Timing and throughput diagnostics** — every record is timestamped, so you can layer your own cadence, gap, and throughput analysis on top: when reads and writes happened and how much data moved. (The timestamps are yours to correlate — the library does not measure per-call latency itself.)
--   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while recording it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
+-   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while logging it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
 
 ## License
 
