@@ -192,7 +192,7 @@ Every log line begins with a single character identifying the kind of event:
 | --- | --- | --- |
 | `<` | Read | bytes were read from the wrapped stream |
 | `>` | Write | bytes were written to the wrapped stream |
-| `!` | Error | a real IO error occurred (transient `WouldBlock` / `WriteZero` are skipped) |
+| `!` | Error | a read or write returned an IO error, except `WouldBlock` on a synchronous read or write and `WriteZero` on a synchronous write |
 | `-` | Shutdown | an asynchronous stream was shut down (`poll_shutdown`) |
 | `x` | Drop | the wrapper was dropped (message `Deallocated.`) |
 | `+` | Open | a manual marker you emit yourself with `log_open` (e.g. connection start); never produced automatically |
@@ -216,7 +216,7 @@ An _event_ (`Event`) is something that happened on the stream, such as a read or
 -   **Filter (`EventFilter`).** Decides which events are logged. It runs on _every_ event kind, including `Shutdown` and `Drop`, and can judge an event by its formatted, human-readable record, the raw bytes of a read or write, or its kind.
 -   **Logger (`Logger`).** The sink that consumes the records of accepted events.
 
-All three of `BufferFormatter`, `EventFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
+All three of `BufferFormatter`, `EventFilter` and `Logger` are public, `Send + 'static` and object-safe. Each is implemented for its boxed trait object (such as `Box<dyn Logger>`) and for a `Box` of every provided implementation, and `BufferFormatter` also for `Arc<T>` where `T: Sync`. You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations). A `Box` of your own filter implements `EventFilter` too, but a `Box` of your own formatter or logger does not, so box those as trait objects.
 
 ## Provided implementations
 
