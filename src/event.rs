@@ -192,8 +192,9 @@ pub enum EventKind {
     Read,
     /// Bytes were written to the wrapped stream.
     Write,
-    /// A real IO error occurred while reading or writing (transient `WouldBlock` / `WriteZero`
-    /// conditions are skipped).
+    /// A read or write returned an IO error. `WouldBlock` on a synchronous read or write and
+    /// `WriteZero` on a synchronous write produce no event; asynchronous reads and writes have no
+    /// such exceptions.
     Error,
     /// An asynchronous stream was shut down via `poll_shutdown`.
     Shutdown,
