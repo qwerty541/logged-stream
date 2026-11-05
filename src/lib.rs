@@ -27,8 +27,11 @@
 //! -   **Logger ([`Logger`]).** The sink that consumes the records of accepted events.
 //!
 //! All three of [`BufferFormatter`], [`EventFilter`] and [`Logger`] are public, `Send + 'static`
-//! and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for
-//! [`BufferFormatter`]). You are free to supply your own implementation of any part.
+//! and object-safe. Each is implemented for its boxed trait object (such as `Box<dyn Logger>`) and
+//! for a `Box` of every provided implementation, and [`BufferFormatter`] also for `Arc<T>` where
+//! `T: Sync`. You are free to supply your own implementation of any part. A `Box` of your own
+//! filter implements [`EventFilter`] too, but a `Box` of your own formatter or logger does not, so
+//! box those as trait objects.
 //!
 //! # Provided implementations
 //!

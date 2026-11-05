@@ -66,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Documented what a filter can judge (the formatted record, the raw bytes or the kind), why the formatted record is the simplest to write against, and what formatting costs, with benchmark numbers.
 - Defined the terms *event* (what happened on the stream, judged by filters) and *record* (the log entry made from an accepted event, received by loggers) in the README and crate documentation, and used them consistently throughout.
+- Corrected the `EventKind::Error` documentation and the README's event kinds table, which said that `WouldBlock` and `WriteZero` are skipped. Only a synchronous read or write skips them (`WriteZero` on writes only); an asynchronous read or write produces an `Error` event for every error.
+- Corrected the claim in the README and crate documentation that all three traits have blanket implementations for `Box<...>`. Only `EventFilter` does. `BufferFormatter` and `Logger` are implemented for their boxed trait objects and for a `Box` of each provided implementation, so box your own formatter or logger as a trait object.
 
 ## v0.8.0 (14.09.2026)
 
