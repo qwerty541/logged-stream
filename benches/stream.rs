@@ -27,12 +27,12 @@ use criterion::criterion_main;
 use criterion::measurement::WallTime;
 use logged_stream::DefaultFilter;
 use logged_stream::Event;
+use logged_stream::EventFilter;
+use logged_stream::EventKind;
+use logged_stream::EventKindFilter;
 use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
 use logged_stream::MemoryStorageLogger;
-use logged_stream::RecordFilter;
-use logged_stream::RecordKind;
-use logged_stream::RecordKindFilter;
 use std::hint::black_box;
 use std::io;
 use std::io::Read;
@@ -56,9 +56,9 @@ impl Read for Repeat {
 /// rejected.
 struct RejectReadsFormatted;
 
-impl RecordFilter for RejectReadsFormatted {
+impl EventFilter for RejectReadsFormatted {
     fn check(&self, event: &Event<'_>) -> bool {
-        event.record().kind != RecordKind::Read
+        event.record().kind != EventKind::Read
     }
 }
 
@@ -66,7 +66,7 @@ impl RecordFilter for RejectReadsFormatted {
 /// filter and the logger reuses the record.
 struct AcceptFormatted;
 
-impl RecordFilter for AcceptFormatted {
+impl EventFilter for AcceptFormatted {
     fn check(&self, event: &Event<'_>) -> bool {
         event.record();
         true
@@ -76,7 +76,7 @@ impl RecordFilter for AcceptFormatted {
 /// Keeps payloads that start with a TLS handshake byte (0x16), judged on the formatted message.
 struct HandshakesFormatted;
 
-impl RecordFilter for HandshakesFormatted {
+impl EventFilter for HandshakesFormatted {
     fn check(&self, event: &Event<'_>) -> bool {
         event.record().message.starts_with("16")
     }
@@ -85,7 +85,7 @@ impl RecordFilter for HandshakesFormatted {
 /// The same decision as `HandshakesFormatted` for reads and writes, taken on the raw bytes.
 struct HandshakesRaw;
 
-impl RecordFilter for HandshakesRaw {
+impl EventFilter for HandshakesRaw {
     fn check(&self, event: &Event<'_>) -> bool {
         match event.bytes() {
             Some(bytes) => bytes.first() == Some(&0x16),
@@ -101,7 +101,7 @@ fn payload(size: usize) -> Vec<u8> {
 
 /// Benchmark one read of `size` bytes through a `LoggedStream`, after checking once that the read is
 /// logged or rejected as the case name promises.
-fn bench_stream<F: RecordFilter>(
+fn bench_stream<F: EventFilter>(
     group: &mut BenchmarkGroup<'_, WallTime>,
     case: &str,
     size: usize,
@@ -149,7 +149,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| inner.read(black_box(&mut buf)).unwrap())
         });
 
-        // Rejected by kind: judged on the formatted record, or by the provided `RecordKindFilter` on
+        // Rejected by kind: judged on the formatted record, or by the provided `EventKindFilter` on
         // the kind alone.
         bench_stream(
             &mut group,
@@ -162,7 +162,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             &mut group,
             "reject_by_kind",
             size,
-            RecordKindFilter::new(&[RecordKind::Write]),
+            EventKindFilter::new(&[EventKind::Write]),
             REJECTED,
         );
 

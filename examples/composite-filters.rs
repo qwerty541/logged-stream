@@ -3,10 +3,10 @@ use logged_stream::AllFilter;
 use logged_stream::AnyFilter;
 use logged_stream::ConsoleLogger;
 use logged_stream::DefaultFilter;
+use logged_stream::EventKind;
+use logged_stream::EventKindFilter;
 use logged_stream::LoggedStream;
 use logged_stream::LowercaseHexadecimalFormatter;
-use logged_stream::RecordKind;
-use logged_stream::RecordKindFilter;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Write;
@@ -28,8 +28,8 @@ fn main() {
     println!("Example 1: AnyFilter - Accept Read OR Write operations");
     println!("-------------------------------------------------------");
     let any_filter = AnyFilter::new(vec![
-        Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-        Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+        Box::new(EventKindFilter::new(&[EventKind::Read])),
+        Box::new(EventKindFilter::new(&[EventKind::Write])),
     ]);
 
     let data = vec![0x01, 0x02, 0x03, 0x04];
@@ -51,14 +51,8 @@ fn main() {
     // In this simplified example, both filters check for Read operations
     // In practice, you might combine different types of filters
     let all_filter = AllFilter::new(vec![
-        Box::new(RecordKindFilter::new(&[
-            RecordKind::Read,
-            RecordKind::Write,
-        ])),
-        Box::new(RecordKindFilter::new(&[
-            RecordKind::Read,
-            RecordKind::Error,
-        ])),
+        Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
+        Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
     ]);
 
     let data2 = vec![0xAA, 0xBB, 0xCC, 0xDD];
@@ -80,8 +74,8 @@ fn main() {
     let nested_filter = AllFilter::new(vec![
         // Accept Read OR Write
         Box::new(AnyFilter::new(vec![
-            Box::new(RecordKindFilter::new(&[RecordKind::Read])),
-            Box::new(RecordKindFilter::new(&[RecordKind::Write])),
+            Box::new(EventKindFilter::new(&[EventKind::Read])),
+            Box::new(EventKindFilter::new(&[EventKind::Write])),
         ])),
         // And also apply additional conditions (here we just use DefaultFilter, which accepts everything)
         Box::new(DefaultFilter),
