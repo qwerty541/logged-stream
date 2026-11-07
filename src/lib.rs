@@ -11,20 +11,27 @@
 //! read or write is formatted only when the filter asks for the formatted record or when the
 //! record is logged, so a read or write rejected without it costs almost nothing.
 //!
+//! An *event* ([`Event`]) is something that happened on the stream, such as a read or a shutdown,
+//! and it is what the filter judges. A *record* ([`Record`]) is the log entry made from an accepted
+//! event, with its formatted message and timestamp, and it is what the logger receives.
+//!
 //! -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing [`Read`] /
 //!     [`Write`] (or the [`tokio`] async equivalents) works — a socket, a file, an in-memory buffer,
 //!     or your own type. [`LoggedStream`] implements the same IO trait `S` does, so it slots in
 //!     wherever `S` was used.
 //! -   **Formatter ([`BufferFormatter`]).** Turns the read and written byte buffers into the display
 //!     strings you see in the log.
-//! -   **Filter ([`RecordFilter`]).** Decides which records are logged. It runs on every record kind,
-//!     including shutdown and drop, and sees each as an [`Event`]: the formatted, human-readable
-//!     record, the raw bytes of a read or write, and the kind.
-//! -   **Logger ([`Logger`]).** The sink that consumes accepted records.
+//! -   **Filter ([`EventFilter`]).** Decides which events are logged. It runs on every event kind,
+//!     including shutdown and drop, and can judge an event by its formatted, human-readable record,
+//!     the raw bytes of a read or write, or its kind.
+//! -   **Logger ([`Logger`]).** The sink that consumes the records of accepted events.
 //!
-//! All three of [`BufferFormatter`], [`RecordFilter`] and [`Logger`] are public, `Send + 'static`
-//! and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for
-//! [`BufferFormatter`]). You are free to supply your own implementation of any part.
+//! All three of [`BufferFormatter`], [`EventFilter`] and [`Logger`] are public, `Send + 'static`
+//! and object-safe. Each is implemented for its boxed trait object (such as `Box<dyn Logger>`) and
+//! for a `Box` of every provided implementation, and [`BufferFormatter`] also for `Arc<T>` where
+//! `T: Sync`. You are free to supply your own implementation of any part. A `Box` of your own
+//! filter implements [`EventFilter`] too, but a `Box` of your own formatter or logger does not, so
+//! box those as trait objects.
 //!
 //! # Provided implementations
 //!
@@ -41,30 +48,30 @@
 //! | [`OctalFormatter`] | octal — `012:377` |
 //! | [`BinaryFormatter`] | binary — `00001010:11111111` |
 //!
-//! ## Filters ([`RecordFilter`])
+//! ## Filters ([`EventFilter`])
 //!
-//! Decide which records reach the logger.
+//! Decide which events are logged.
 //!
 //! | Filter | Behavior |
 //! | --- | --- |
-//! | [`DefaultFilter`] | Accepts every record. |
-//! | [`RecordKindFilter`] | Accepts only the record kinds in an allow-list given at construction. |
-//! | [`AllFilter`] | AND — a record passes only if every child filter accepts it (an empty list accepts everything). |
-//! | [`AnyFilter`] | OR — a record passes if any child filter accepts it (an empty list rejects everything). |
+//! | [`DefaultFilter`] | Accepts every event. |
+//! | [`EventKindFilter`] | Accepts only the event kinds in an allow-list given at construction. |
+//! | [`AllFilter`] | AND — an event passes only if every child filter accepts it (an empty list accepts everything). |
+//! | [`AnyFilter`] | OR — an event passes if any child filter accepts it (an empty list rejects everything). |
 //!
 //! ## Loggers ([`Logger`])
 //!
-//! Consume each accepted record.
+//! Consume the record of each accepted event.
 //!
 //! | Logger | Destination |
 //! | --- | --- |
-//! | [`ConsoleLogger`] | Emits records through the `log` facade. |
+//! | [`ConsoleLogger`] | Forwards records to the `log` facade. |
 //! | [`FileLogger`] | Writes records to a file, one line per record. |
 //! | [`MemoryStorageLogger`] | Retains recent records in a bounded in-memory buffer. |
 //! | [`ChannelLogger`] | Sends records over an `mpsc` channel for handling elsewhere. |
 //!
 //! [`ConsoleLogger`] and [`FileLogger`] additionally accept an optional prefix (`with_prefix` /
-//! `set_prefix`, none by default), written verbatim before the record kind character of every line.
+//! `set_prefix`, none by default), written verbatim before the event kind character of every line.
 //! It tells apart several [`LoggedStream`]s — for example one per connection — that share a single
 //! console or file:
 //!
@@ -80,7 +87,7 @@
 //! starting offset, and they will silently overwrite each other's records.
 //!
 //! If none of the provided implementations matches your requirements, you can implement
-//! [`BufferFormatter`], [`RecordFilter`] or [`Logger`] yourself and pass your type to
+//! [`BufferFormatter`], [`EventFilter`] or [`Logger`] yourself and pass your type to
 //! [`LoggedStream`] exactly like a built-in.
 //!
 //! [`Write`]: std::io::Write
@@ -89,6 +96,7 @@
 //! [`AsyncWrite`]: tokio::io::AsyncWrite
 
 mod buffer_formatter;
+mod event;
 mod filter;
 mod logger;
 mod record;
@@ -100,17 +108,17 @@ pub use buffer_formatter::DecimalFormatter;
 pub use buffer_formatter::LowercaseHexadecimalFormatter;
 pub use buffer_formatter::OctalFormatter;
 pub use buffer_formatter::UppercaseHexadecimalFormatter;
+pub use event::Event;
+pub use event::EventKind;
 pub use filter::AllFilter;
 pub use filter::AnyFilter;
 pub use filter::DefaultFilter;
-pub use filter::RecordFilter;
-pub use filter::RecordKindFilter;
+pub use filter::EventFilter;
+pub use filter::EventKindFilter;
 pub use logger::ChannelLogger;
 pub use logger::ConsoleLogger;
 pub use logger::FileLogger;
 pub use logger::Logger;
 pub use logger::MemoryStorageLogger;
-pub use record::Event;
 pub use record::Record;
-pub use record::RecordKind;
 pub use stream::LoggedStream;

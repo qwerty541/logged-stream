@@ -36,11 +36,11 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 - [Usage](#usage)
 - [Quick start](#quick-start)
 - [Example](#example)
-- [Record kinds](#record-kinds)
+- [Event kinds](#event-kinds)
 - [Architecture](#architecture)
 - [Provided implementations](#provided-implementations)
   - [Formatters (`BufferFormatter`)](#formatters-bufferformatter)
-  - [Filters (`RecordFilter`)](#filters-recordfilter)
+  - [Filters (`EventFilter`)](#filters-eventfilter)
   - [Loggers (`Logger`)](#loggers-logger)
 - [Custom implementations](#custom-implementations)
 - [Use cases](#use-cases)
@@ -55,7 +55,7 @@ _Transparent logging wrapper for any synchronous or asynchronous Rust IO stream 
 -   **Drop-in.** Same trait in, same trait out — wrapping a stream leaves the surrounding code unchanged.
 -   **Sync and async.** Works with `std::io` `Read`/`Write` streams and `tokio` `AsyncRead`/`AsyncWrite` streams alike.
 -   **Replaceable parts.** Formatting, filtering and log output are each a public trait — use a built-in, or implement the trait yourself if none fits your needs.
--   **Cheap rejection.** Reads and writes are formatted lazily. A read that the filter rejects by its kind or its raw bytes, as `RecordKindFilter` does, costs about as much as the read itself: about 0.09 µs instead of about 0.72 ms for 8 KiB (`cargo bench --bench stream` on an Intel Core i5-8265U laptop). Filters that judge the formatted text, and records that a logger discards (for example `ConsoleLogger` below the active log level), still pay for formatting.
+-   **Cheap rejection.** Reads and writes are formatted lazily. A read that the filter rejects by its kind or its raw bytes, as `EventKindFilter` does, costs about as much as the read itself: about 0.09 µs instead of about 0.72 ms for 8 KiB (`cargo bench --bench stream` on an Intel Core i5-8265U laptop). Filters that judge the formatted text, and records that a logger discards (for example `ConsoleLogger` below the active log level), still pay for formatting.
 -   **Small and safe.** A small dependency set and no `unsafe` code.
 
 `LoggedStream` is deliberately a skeleton: it wires together four replaceable parts — the IO object you wrap, plus a formatter, a filter and a logger. Each event flows through them as `event -> Formatter -> Filter -> Logger`, with the formatter running lazily; see [Architecture](#architecture) for how they fit together, and [Custom implementations](#custom-implementations) to write your own.
@@ -79,7 +79,7 @@ It requires **Rust 1.85.1 or newer** (Rust 2024 edition).
 
 ## Quick start
 
-`LoggedStream::new` takes the stream to wrap plus the three pluggable parts — a formatter, a filter, and a logger. The snippet below wraps an in-memory [`Cursor`][cursor] (standing in for a socket or file, so it runs with no external setup), renders bytes as lowercase hexadecimal, keeps every record with `DefaultFilter`, and prints them through `ConsoleLogger`:
+`LoggedStream::new` takes the stream to wrap plus the three pluggable parts — a formatter, a filter, and a logger. The snippet below wraps an in-memory [`Cursor`][cursor] (standing in for a socket or file, so it runs with no external setup), renders bytes as lowercase hexadecimal, keeps every event with `DefaultFilter`, and prints the resulting records through `ConsoleLogger`:
 
 ```rust
 use log::LevelFilter;
@@ -184,7 +184,7 @@ The snippets above are condensed. Full runnable versions live in the [`examples/
 
 Full API documentation is on [docs.rs](https://docs.rs/logged-stream).
 
-## Record kinds
+## Event kinds
 
 Every log line begins with a single character identifying the kind of event:
 
@@ -192,12 +192,12 @@ Every log line begins with a single character identifying the kind of event:
 | --- | --- | --- |
 | `<` | Read | bytes were read from the wrapped stream |
 | `>` | Write | bytes were written to the wrapped stream |
-| `!` | Error | a real IO error occurred (transient `WouldBlock` / `WriteZero` are skipped) |
+| `!` | Error | a read or write returned an IO error, except `WouldBlock` on a synchronous read or write and `WriteZero` on a synchronous write |
 | `-` | Shutdown | an asynchronous stream was shut down (`poll_shutdown`) |
 | `x` | Drop | the wrapper was dropped (message `Deallocated.`) |
 | `+` | Open | a manual marker you emit yourself with `log_open` (e.g. connection start); never produced automatically |
 
-Every kind except `Open` is produced automatically. `Open` is a marker you record yourself with `LoggedStream::log_open` — for example `stream.log_open(format!("Established connection with {peer}"))` right after a connection is established. Like any record, it passes through the filter, so a `RecordKindFilter` that omits `Open` will suppress it.
+Every kind except `Open` is produced automatically. `Open` is a marker you emit yourself with `LoggedStream::log_open` — for example `stream.log_open(format!("Established connection with {peer}"))` right after a connection is established. Like any event, it passes through the filter, so an `EventKindFilter` that omits `Open` will suppress it.
 
 ## Architecture
 
@@ -209,12 +209,14 @@ event  ->  Formatter  ->  Filter  ->  Logger
 
 The formatter runs lazily: a read or write is formatted only when the filter asks for the formatted record or when the record is logged, so a read or write rejected without it costs almost nothing.
 
+An _event_ (`Event`) is something that happened on the stream, such as a read or a shutdown, and it is what the filter judges. A _record_ (`Record`) is the log entry made from an accepted event, with its formatted message and timestamp, and it is what the logger receives.
+
 -   **The inner IO object (`S`).** The stream you are wrapping. Any type implementing `Read`/`Write` (or the `tokio` async equivalents) works — a socket, a file, an in-memory buffer, or your own type. `LoggedStream` implements the same IO trait `S` does, so it slots in wherever `S` was used.
 -   **Formatter (`BufferFormatter`).** Turns the read and written byte buffers into the display strings you see in the log.
--   **Filter (`RecordFilter`).** Decides which records are logged. It runs on _every_ record kind, including `Shutdown` and `Drop`, and sees each as an `Event`: the formatted, human-readable record, the raw bytes of a read or write, and the kind.
--   **Logger (`Logger`).** The sink that consumes accepted records.
+-   **Filter (`EventFilter`).** Decides which events are logged. It runs on _every_ event kind, including `Shutdown` and `Drop`, and can judge an event by its formatted, human-readable record, the raw bytes of a read or write, or its kind.
+-   **Logger (`Logger`).** The sink that consumes the records of accepted events.
 
-All three of `BufferFormatter`, `RecordFilter` and `Logger` are public, `Send + 'static` and object-safe, with blanket implementations for `Box<...>` (and `Arc<T>` where `T: Sync` for `BufferFormatter`). You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations).
+All three of `BufferFormatter`, `EventFilter` and `Logger` are public, `Send + 'static` and object-safe. Each is implemented for its boxed trait object (such as `Box<dyn Logger>`) and for a `Box` of every provided implementation, and `BufferFormatter` also for `Arc<T>` where `T: Sync`. You are free to supply your own implementation of any part and select one at runtime as a trait object — see [Custom implementations](#custom-implementations). A `Box` of your own filter implements `EventFilter` too, but a `Box` of your own formatter or logger does not, so box those as trait objects.
 
 ## Provided implementations
 
@@ -230,29 +232,29 @@ Control how byte buffers are rendered. Each formatter stores a separator (defaul
 | `OctalFormatter` | octal — `012:377` |
 | `BinaryFormatter` | binary — `00001010:11111111` |
 
-### Filters (`RecordFilter`)
+### Filters (`EventFilter`)
 
-Decide which records reach the logger.
+Decide which events are logged.
 
 | Filter | Behavior |
 | --- | --- |
-| `DefaultFilter` | Accepts every record. |
-| `RecordKindFilter` | Accepts only the record kinds in an allow-list given at construction. |
-| `AllFilter` | AND — a record passes only if every child filter accepts it (an empty list accepts everything). |
-| `AnyFilter` | OR — a record passes if any child filter accepts it (an empty list rejects everything). |
+| `DefaultFilter` | Accepts every event. |
+| `EventKindFilter` | Accepts only the event kinds in an allow-list given at construction. |
+| `AllFilter` | AND — an event passes only if every child filter accepts it (an empty list accepts everything). |
+| `AnyFilter` | OR — an event passes if any child filter accepts it (an empty list rejects everything). |
 
 ### Loggers (`Logger`)
 
-Consume each accepted record.
+Consume the record of each accepted event.
 
 | Logger | Destination |
 | --- | --- |
-| `ConsoleLogger` | Emits records through the `log` facade. |
+| `ConsoleLogger` | Forwards records to the `log` facade. |
 | `FileLogger` | Writes records to a file, one line per record. |
 | `MemoryStorageLogger` | Retains recent records in a bounded in-memory buffer. |
 | `ChannelLogger` | Sends records over an `mpsc` channel for handling elsewhere. |
 
-`ConsoleLogger` and `FileLogger` additionally accept an optional prefix (`with_prefix` / `set_prefix`, none by default), written verbatim before the record kind character of every line. It tells apart several `LoggedStream`s — for example one per connection — that share a single console or file:
+`ConsoleLogger` and `FileLogger` additionally accept an optional prefix (`with_prefix` / `set_prefix`, none by default), written verbatim before the event kind character of every line. It tells apart several `LoggedStream`s — for example one per connection — that share a single console or file:
 
 ```text
 [2026-07-20T12:34:56Z] [conn 5] > 01:02:03:04
@@ -270,7 +272,7 @@ If none of the provided implementations matches your requirements, you can imple
 | Part | Trait | You must implement | Provided for you |
 | --- | --- | --- | --- |
 | Formatter | `BufferFormatter` | `get_separator`, `format_byte` | `format_buffer` — joins formatted bytes with your separator |
-| Filter | `RecordFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter` |
+| Filter | `EventFilter` | `check` | `fmt_debug` — override it so composite filters print more than `UnknownFilter` |
 | Logger | `Logger` | `log` | — |
 
 All three are `Send + 'static` and object-safe, so you can box them (`Box<dyn BufferFormatter>`) and choose an implementation at runtime. The fourth part needs no trait from this crate at all — anything implementing `std::io::Read`/`Write` or the `tokio` async equivalents can be wrapped, including your own types.
@@ -299,17 +301,17 @@ impl BufferFormatter for AsciiFormatter {
 
 A filter's `check` receives an `Event` and judges whichever part of it fits: the record exactly as it would be logged (`Event::record`), which is the simplest to write against, or the raw bytes of a read or write (`Event::bytes`), which spares the formatting of every read and write the filter rejects. [`custom-filters.rs`](./examples/custom-filters.rs) shows both.
 
-Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` and a `time`, so a custom logger can route by record kind, re-timestamp, or forward to any sink you like.
+Every record a `Logger` receives is a `Record` carrying a `kind`, a `message` and a `time`, so a custom logger can route by event kind, re-timestamp, or forward to any sink you like.
 
 ## Use cases
 
-`LoggedStream` hands you a formatted, filterable, timestamped record of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
+`LoggedStream` hands you a formatted, filterable, timestamped log of every read, write, error, shutdown, and drop that crosses a stream — without changing the code on either side of it. That makes it a building block for a range of tools and diagnostics. A few examples of what you can build:
 
--   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to record every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
+-   **Network traffic monitoring** — wrap a `TcpStream` (synchronous or asynchronous) to log every byte a client and server exchange, for debugging protocols, tracking data flow, or auditing what actually crossed the wire.
 -   **I/O debugging** — see the exact bytes moving through a file, socket, or any custom stream, alongside the errors, shutdowns, and drops around them, to pin down data corruption or where a connection unexpectedly closed.
 -   **Protocol and application-traffic capture** — log the raw wire traffic of a protocol you are implementing or reverse-engineering, such as a database driver, an RPC channel, or a custom binary format. `LoggedStream` captures the bytes; decode or parse them downstream if you need higher-level detail like SQL statements.
 -   **Timing and throughput diagnostics** — every record is timestamped, so you can layer your own cadence, gap, and throughput analysis on top: when reads and writes happened and how much data moved. (The timestamps are yours to correlate — the library does not measure per-call latency itself.)
--   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while recording it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
+-   **Transparent proxies and audit trails** — build a man-in-the-middle proxy or an audit log that relays traffic unchanged while logging it. The author's [`logged_tcp_proxy`](https://github.com/qwerty541/logged-tcp-proxy) does exactly this: it wraps each `TcpStream`, splits it into read/write halves, and prints every connection's payload. Route the records to a file, memory, or a channel through the pluggable loggers to keep a durable trail.
 
 ## License
 

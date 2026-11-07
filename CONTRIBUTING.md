@@ -49,6 +49,7 @@ This project adheres to a Code of Conduct. By participating, you agree to uphold
 
 - Rust toolchain (stable) installed via [rustup](https://rustup.rs/)
 - Cargo (bundled with rustup)
+- A nightly rustfmt, for formatting only: `rustup toolchain install nightly --profile minimal --component rustfmt`
 
 ### Toolchain and MSRV
 
@@ -60,7 +61,7 @@ Please avoid raising MSRV in PRs unless discussed first. If MSRV must increase, 
 ### Building
 
 ```bash
-cargo build
+cargo build --all-targets
 ```
 
 ### Testing
@@ -84,8 +85,10 @@ cargo llvm-cov
 
 ### Linting & Formatting
 
-- Formatting: `cargo fmt --all` (CI uses `cargo fmt --check`)
+- Formatting: `cargo +nightly fmt --all` (CI runs `cargo fmt --check` on stable, beta and nightly)
 - Linting: `cargo clippy --all-targets -- -D warnings`
+
+Formatting needs a nightly rustfmt. `rustfmt.toml` sets `imports_granularity = "Item"` (one `use` per line), an unstable option: stable and beta rustfmt print ``can't set `imports_granularity = Item`, unstable features are only available in nightly channel``, skip it and still pass, so only CI's nightly cell rejects brace-grouped imports. If you see that warning, you are not formatting with nightly.
 
 `--all-targets` is what CI uses, and it matters: without it Clippy only sees the library, leaving the examples, the benches and the inline `#[cfg(test)]` modules unlinted. Doctests are outside Clippy's reach either way.
 
@@ -118,10 +121,10 @@ cargo run --example composite-filters
 cargo run --example custom-filters
 ```
 
-Some examples use `env_logger`. You can control verbosity via `RUST_LOG`, for example:
+Most examples log through `env_logger` and pin its global level to `debug`, so a bare level such as `RUST_LOG=info` changes nothing; a module-scoped directive does, for example (this one hides the payload lines):
 
 ```bash
-RUST_LOG=debug cargo run --example tcp-stream-console-logger
+RUST_LOG=logged_stream=info cargo run --example tcp-stream-console-logger
 ```
 
 ### Benchmarks

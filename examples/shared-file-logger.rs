@@ -15,7 +15,7 @@
 //!     line up front for exactly this reason, so two loggers writing at the same moment cannot
 //!     splice half of one line into the middle of another.
 //!
-//! The prefix is written after the timestamp and immediately before the record kind character, so
+//! The prefix is written after the timestamp and immediately before the event kind character, so
 //! the timestamp still leads every line and the file stays sortable.
 //!
 //! Run with `cargo run --example shared-file-logger`; the resulting log is printed at the end.
@@ -63,7 +63,7 @@ async fn run_connection(id: u8) {
         logger,
     );
 
-    // `Open` is the one record kind that is never emitted automatically — it is a marker you record
+    // `Open` is the one event kind that is never emitted automatically — it is a marker you emit
     // yourself, which is handy here to mark where each connection begins.
     client.log_open(format!("Established connection {id}"));
 
@@ -76,7 +76,7 @@ async fn run_connection(id: u8) {
         client.read_exact(&mut response).await.unwrap();
     }
 
-    // Dropping `client` at the end of this function emits the `Drop` record ("Deallocated.")
+    // Dropping `client` at the end of this function logs the `Drop` record ("Deallocated.")
     // through the same logger, so the connection's last line is written here too.
 }
 
