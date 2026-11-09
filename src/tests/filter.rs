@@ -1,6 +1,7 @@
 //! The provided filters: `DefaultFilter`, `EventKindFilter`, the composites `AllFilter` and
-//! `AnyFilter` (empty, nested, child order, mixed formatted and raw children), deciding by kind
-//! without formatting, `Box` forwarding, and the trait bounds and `Debug` output.
+//! `AnyFilter` (empty, nested, child order, formatting once for several children, mixed
+//! formatted and raw children), deciding by kind without formatting, `Box` forwarding, and the
+//! trait bounds and `Debug` output.
 
 use super::helpers::CountingFilter;
 use super::helpers::CountingFormatter;

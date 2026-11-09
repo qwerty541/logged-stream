@@ -1,6 +1,6 @@
-//! `LoggedStream` basics: bytes pass through unchanged, synchronous reads and writes are logged
-//! with the configured formatter (a flush is not), the memory and channel loggers' accessors
-//! work through the stream, and the trait bounds.
+//! `LoggedStream` basics: bytes pass through unchanged, synchronous and asynchronous reads and
+//! writes are logged with the configured formatter (a flush is not), the memory and channel
+//! loggers' accessors work through the stream, and the trait bounds and `Debug` output.
 
 use super::helpers::RecordingWriter;
 use super::helpers::assert_send;
@@ -110,6 +110,31 @@ fn test_multiple_reads_log_in_order() {
     assert_eq!(records[1].message, "03:04");
 }
 
+#[tokio::test]
+async fn test_async_read_logs_read_record() {
+    use tokio::io::AsyncReadExt;
+    use tokio::io::AsyncWriteExt;
+
+    let (client, mut server) = tokio::io::duplex(64);
+    server.write_all(&[0xaa, 0xbb]).await.unwrap();
+
+    let mut stream = LoggedStream::new(
+        client,
+        LowercaseHexadecimalFormatter::new_default(),
+        DefaultFilter,
+        MemoryStorageLogger::new(16),
+    );
+
+    let mut buf = [0u8; 2];
+    stream.read_exact(&mut buf).await.unwrap();
+
+    assert_eq!(buf, [0xaa, 0xbb]);
+    let records = stream.get_log_records();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].kind, EventKind::Read);
+    assert_eq!(records[0].message, "aa:bb");
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Write logging
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,6 +168,26 @@ fn test_flush_does_not_log() {
     stream.flush().unwrap();
 
     assert!(stream.get_log_records().is_empty());
+}
+
+#[tokio::test]
+async fn test_async_write_logs_write_record() {
+    use tokio::io::AsyncWriteExt;
+
+    let (client, _server) = tokio::io::duplex(64);
+    let mut stream = LoggedStream::new(
+        client,
+        LowercaseHexadecimalFormatter::new_default(),
+        DefaultFilter,
+        MemoryStorageLogger::new(16),
+    );
+
+    stream.write_all(&[0x01, 0x02, 0x03, 0x04]).await.unwrap();
+
+    let records = stream.get_log_records();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].kind, EventKind::Write);
+    assert_eq!(records[0].message, "01:02:03:04");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////

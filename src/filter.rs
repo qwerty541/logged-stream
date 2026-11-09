@@ -372,8 +372,8 @@ impl EventFilter for AnyFilter {
 
 /// Helper wrapper to bridge [`EventFilter::fmt_debug`] into [`fmt::Debug`].
 ///
-/// It is `pub(crate)`, not private, because the filter tests in `crate::tests` use it to print a
-/// filter in an assertion message.
+/// It is `pub(crate)`, not private, because the filter tests in `crate::tests` use it to print a filter
+/// in an assertion message.
 pub(crate) struct EventFilterDebug<'a>(pub(crate) &'a dyn EventFilter);
 
 impl fmt::Debug for EventFilterDebug<'_> {

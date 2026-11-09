@@ -1,34 +1,130 @@
-//! How `LoggedStream` filters events: a filter suppresses reads and writes, a read or write is
-//! formatted only when a filter asks for its record or it is logged, and a filter that judges
-//! raw bytes sees exactly the bytes that moved.
+//! `LoggedStream` filtering: every event kind reaches the filter but only reads and writes
+//! carry bytes, a filter suppresses reads and writes, a read or write is formatted only when a
+//! filter asks for its record or it is logged, and a filter that judges raw bytes sees exactly
+//! the bytes that moved.
 
 use super::helpers::CountingFilter;
 use super::helpers::CountingFormatter;
 use super::helpers::ErrAsyncReader;
-use super::helpers::OneByteAsyncReader;
-use super::helpers::OneByteAsyncWriter;
-use super::helpers::OneByteWriter;
 use super::helpers::RecordingWriter;
-use super::helpers::SeenKinds;
-use super::helpers::SeenRecords;
-use super::helpers::TlsHandshakes;
 use crate::AllFilter;
 use crate::ChannelLogger;
+use crate::Event;
+use crate::EventFilter;
 use crate::EventKind;
 use crate::EventKindFilter;
 use crate::LoggedStream;
 use crate::LowercaseHexadecimalFormatter;
 use crate::MemoryStorageLogger;
+use crate::Record;
 use std::cell::RefCell;
 use std::io::Cursor;
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::task::Context;
+use std::task::Poll;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Test doubles
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Keeps every event, and remembers the formatted record of each.
+struct SeenRecords(Arc<Mutex<Vec<Record>>>);
+
+impl EventFilter for SeenRecords {
+    fn check(&self, event: &Event<'_>) -> bool {
+        self.0.lock().unwrap().push(event.record().clone());
+        true
+    }
+}
+
+/// Keeps every event, and remembers the kind of each and whether it carried bytes.
+struct SeenKinds(Arc<Mutex<Vec<(EventKind, bool)>>>);
+
+impl EventFilter for SeenKinds {
+    fn check(&self, event: &Event<'_>) -> bool {
+        self.0
+            .lock()
+            .unwrap()
+            .push((event.kind(), event.bytes().is_some()));
+        true
+    }
+}
+
+/// Judges reads and writes on their raw bytes, keeping those that start with a TLS handshake
+/// byte (0x16), and remembers the bytes it was shown. Of the events without bytes it keeps only
+/// drops.
+struct TlsHandshakes(Arc<Mutex<Vec<Vec<u8>>>>);
+
+impl EventFilter for TlsHandshakes {
+    fn check(&self, event: &Event<'_>) -> bool {
+        match event.bytes() {
+            Some(bytes) => {
+                self.0.lock().unwrap().push(bytes.to_vec());
+                bytes.first() == Some(&0x16)
+            }
+            None => event.kind() == EventKind::Drop,
+        }
+    }
+}
+
+/// A synchronous writer that takes at most one byte per `write` call.
+struct OneByteWriter;
+
+impl Write for OneByteWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        Ok(buf.len().min(1))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// An asynchronous reader that adds at most one byte of its payload per `poll_read`.
+struct OneByteAsyncReader(Vec<u8>);
+
+impl tokio::io::AsyncRead for OneByteAsyncReader {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        if !self.0.is_empty() && buf.remaining() > 0 {
+            let byte = self.0.remove(0);
+            buf.put_slice(&[byte]);
+        }
+        Poll::Ready(Ok(()))
+    }
+}
+
+/// An asynchronous writer that takes at most one byte per `poll_write`.
+struct OneByteAsyncWriter;
+
+impl tokio::io::AsyncWrite for OneByteAsyncWriter {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(buf.len().min(1)))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Event filtering

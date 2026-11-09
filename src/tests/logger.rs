@@ -1,6 +1,7 @@
 //! The provided loggers: `ConsoleLogger` (the prefix, the level and the exact line it emits
 //! through the `log` facade), `FileLogger` (the prefix after the timestamp, and whole lines from
-//! concurrent loggers), and the trait bounds.
+//! concurrent loggers), and the trait bounds. `MemoryStorageLogger` and `ChannelLogger` are
+//! tested through `LoggedStream`, in `stream.rs`.
 
 use super::helpers::assert_send;
 use super::helpers::assert_unpin;
