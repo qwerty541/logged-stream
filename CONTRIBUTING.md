@@ -73,8 +73,6 @@ cargo test --doc
 
 Both commands are needed. Cargo skips doctests as soon as a target-selecting option such as `--lib` is passed, and the two cannot be merged — `cargo test --lib --doc` fails with `can't mix --doc with other target selecting options`.
 
-Unit tests live in `src/tests/`, a `#[cfg(test)]` module declared in `src/lib.rs`. Add a test to the file named after the module it exercises (the `LoggedStream` suite is split by behavior into `stream.rs` and the `stream_*.rs` files), and put a test double or assertion that several files need into `src/tests/helpers.rs`. These tests sit outside the modules they test, so they can use only `pub` and `pub(crate)` items.
-
 CI builds all targets and runs both commands across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
 
 CI also measures test coverage (Linux, stable) with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and appends the per-file table to the job's step summary. It is informational only — there is no threshold, and the job fails only if the tests do. Note what it measures: cargo-llvm-cov runs `cargo test --tests`, so only the lib unit tests are counted (doctests are neither run nor measured), and the test code itself is not in the numbers: it lives under `src/tests/`, which cargo-llvm-cov leaves out of the report by default, so the table covers the library code only. To reproduce locally (optional, needs a one-off setup):
@@ -84,6 +82,8 @@ rustup component add llvm-tools-preview
 cargo install cargo-llvm-cov
 cargo llvm-cov
 ```
+
+Unit tests live in `src/tests/`, a `#[cfg(test)]` module declared in `src/lib.rs`. Add a test to the file named after the module it exercises; the `LoggedStream` suite is split by behavior into `stream.rs` and the `stream_*.rs` files listed in `src/tests/mod.rs`. A new test file needs a `//!` header saying what it covers and a `mod` line in `src/tests/mod.rs`. Keep a test double or assertion that one file uses private to that file, and move it to `src/tests/helpers.rs` once a second file needs it. The tests sit outside the modules they test, so they see only what the crate root sees: an item private to its module is out of reach.
 
 ### Linting & Formatting
 
@@ -148,7 +148,7 @@ If you add a benchmark, keep it small, deterministic, and clearly named.
 ## Project Structure
 
 - `src/` — library source code
-- `src/tests/` — unit tests, built only by `cargo test`: each module's tests in a file of the same name, the `LoggedStream` suite split by behavior, and shared test doubles in `helpers.rs`
+- `src/tests/` — unit tests, compiled only under `cfg(test)`: each module's tests in a file of the same name, the `LoggedStream` suite split by behavior, and what two or more files use in `helpers.rs`
 - `examples/` — runnable examples
 - `benches/` — Criterion benchmarks
 - `README.md` — crate overview and usage
