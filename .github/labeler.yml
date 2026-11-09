@@ -30,6 +30,6 @@ github_actions:
 rust:
   - changed-files:
       - any-glob-to-any-file:
-          - src/*
+          - src/**
           - examples/*
           - benches/*
