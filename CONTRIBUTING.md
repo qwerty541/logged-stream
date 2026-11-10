@@ -75,13 +75,15 @@ Both commands are needed. Cargo skips doctests as soon as a target-selecting opt
 
 CI builds all targets and runs both commands across Linux/macOS/Windows. If you touch examples or benches, please run the relevant subset locally.
 
-CI also measures test coverage (Linux, stable) with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and appends the per-file table to the job's step summary. It is informational only — there is no threshold, and the job fails only if the tests do. Note what it measures: cargo-llvm-cov runs `cargo test --tests`, so only the lib unit tests are counted (doctests are neither run nor measured), and because the tests are inline `#[cfg(test)]` modules, the test code itself is included in the numbers. To reproduce locally (optional, needs a one-off setup):
+CI also measures test coverage (Linux, stable) with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and appends the per-file table to the job's step summary. It is informational only — there is no threshold, and the job fails only if the tests do. Note what it measures: cargo-llvm-cov runs `cargo test --tests`, so only the lib unit tests are counted (doctests are neither run nor measured), and the test code itself is not in the numbers: it lives under `src/tests/`, which cargo-llvm-cov leaves out of the report by default, so the table covers the library code only. To reproduce locally (optional, needs a one-off setup):
 
 ```bash
 rustup component add llvm-tools-preview
 cargo install cargo-llvm-cov
 cargo llvm-cov
 ```
+
+Unit tests live in `src/tests/`, a `#[cfg(test)]` module declared in `src/lib.rs`. Add a test to the file named after the module it exercises; the `LoggedStream` suite is split by behavior into `stream.rs` and the `stream_*.rs` files listed in `src/tests/mod.rs`. A new test file needs a `//!` header saying what it covers and a `mod` line in `src/tests/mod.rs`. Keep a test double or assertion that one file uses private to that file, and move it to `src/tests/helpers.rs` once a second file needs it. Name a test for the behavior it checks, without a `test_` prefix (`cargo test` reports it as `tests::<file>::<test>`), import library items through the crate root (`use crate::EventKind;`), and put a trait-bound test (`Send`, `Unpin`, object safety, `Box`, `Arc`, `Debug`) in the file's closing *Trait assertions* section. The tests sit outside the modules they test, so they see only what the crate root sees: an item private to its module is out of reach.
 
 ### Linting & Formatting
 
@@ -90,7 +92,7 @@ cargo llvm-cov
 
 Formatting needs a nightly rustfmt. `rustfmt.toml` sets `imports_granularity = "Item"` (one `use` per line), an unstable option: stable and beta rustfmt print ``can't set `imports_granularity = Item`, unstable features are only available in nightly channel``, skip it and still pass, so only CI's nightly cell rejects brace-grouped imports. If you see that warning, you are not formatting with nightly.
 
-`--all-targets` is what CI uses, and it matters: without it Clippy only sees the library, leaving the examples, the benches and the inline `#[cfg(test)]` modules unlinted. Doctests are outside Clippy's reach either way.
+`--all-targets` is what CI uses, and it matters: without it Clippy only sees the library, leaving the examples, the benches and the unit tests in `src/tests/` unlinted. Doctests are outside Clippy's reach either way.
 
 Try to keep Clippy clean without adding broad `#[allow]` attributes unless there’s a strong reason.
 
@@ -146,6 +148,7 @@ If you add a benchmark, keep it small, deterministic, and clearly named.
 ## Project Structure
 
 - `src/` — library source code
+- `src/tests/` — unit tests, compiled only under `cfg(test)`: each module's tests in a file of the same name, the `LoggedStream` suite split by behavior, and what two or more files use in `helpers.rs`
 - `examples/` — runnable examples
 - `benches/` — Criterion benchmarks
 - `README.md` — crate overview and usage

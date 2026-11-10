@@ -101,6 +101,8 @@ mod filter;
 mod logger;
 mod record;
 mod stream;
+#[cfg(test)]
+mod tests;
 
 pub use buffer_formatter::BinaryFormatter;
 pub use buffer_formatter::BufferFormatter;
