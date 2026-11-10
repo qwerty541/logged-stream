@@ -83,7 +83,7 @@ cargo install cargo-llvm-cov
 cargo llvm-cov
 ```
 
-Unit tests live in `src/tests/`, a `#[cfg(test)]` module declared in `src/lib.rs`. Add a test to the file named after the module it exercises; the `LoggedStream` suite is split by behavior into `stream.rs` and the `stream_*.rs` files listed in `src/tests/mod.rs`. A new test file needs a `//!` header saying what it covers and a `mod` line in `src/tests/mod.rs`. Keep a test double or assertion that one file uses private to that file, and move it to `src/tests/helpers.rs` once a second file needs it. The tests sit outside the modules they test, so they see only what the crate root sees: an item private to its module is out of reach.
+Unit tests live in `src/tests/`, a `#[cfg(test)]` module declared in `src/lib.rs`. Add a test to the file named after the module it exercises; the `LoggedStream` suite is split by behavior into `stream.rs` and the `stream_*.rs` files listed in `src/tests/mod.rs`. A new test file needs a `//!` header saying what it covers and a `mod` line in `src/tests/mod.rs`. Keep a test double or assertion that one file uses private to that file, and move it to `src/tests/helpers.rs` once a second file needs it. Name a test for the behavior it checks, without a `test_` prefix (`cargo test` reports it as `tests::<file>::<test>`), import library items through the crate root (`use crate::EventKind;`), and put a trait-bound test (`Send`, `Unpin`, object safety, `Box`, `Arc`, `Debug`) in the file's closing *Trait assertions* section. The tests sit outside the modules they test, so they see only what the crate root sees: an item private to its module is out of reach.
 
 ### Linting & Formatting
 
