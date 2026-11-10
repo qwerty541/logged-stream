@@ -68,7 +68,7 @@ impl tokio::io::AsyncWrite for ErrAsyncWriter {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_read_error_logs_error_record() {
+fn read_error_logs_error_record() {
     let mut stream = LoggedStream::new(
         ErrReader(ErrorKind::Other),
         LowercaseHexadecimalFormatter::new_default(),
@@ -86,7 +86,7 @@ fn test_read_error_logs_error_record() {
 }
 
 #[test]
-fn test_read_error_suppressed_by_filter_without_error() {
+fn read_error_suppressed_by_filter_without_error() {
     let mut stream = LoggedStream::new(
         ErrReader(ErrorKind::Other),
         LowercaseHexadecimalFormatter::new_default(),
@@ -101,7 +101,7 @@ fn test_read_error_suppressed_by_filter_without_error() {
 }
 
 #[test]
-fn test_read_would_block_is_not_logged() {
+fn read_would_block_is_not_logged() {
     // WouldBlock is a transient non-event and must not produce a record.
     let mut stream = LoggedStream::new(
         ErrReader(ErrorKind::WouldBlock),
@@ -117,7 +117,7 @@ fn test_read_would_block_is_not_logged() {
 }
 
 #[test]
-fn test_write_error_logs_error_record() {
+fn write_error_logs_error_record() {
     let mut stream = LoggedStream::new(
         ErrWriter(ErrorKind::Other),
         LowercaseHexadecimalFormatter::new_default(),
@@ -134,7 +134,7 @@ fn test_write_error_logs_error_record() {
 }
 
 #[test]
-fn test_write_error_suppressed_by_filter_without_error() {
+fn write_error_suppressed_by_filter_without_error() {
     let mut stream = LoggedStream::new(
         ErrWriter(ErrorKind::Other),
         LowercaseHexadecimalFormatter::new_default(),
@@ -148,7 +148,7 @@ fn test_write_error_suppressed_by_filter_without_error() {
 }
 
 #[test]
-fn test_write_would_block_is_not_logged() {
+fn write_would_block_is_not_logged() {
     let mut stream = LoggedStream::new(
         ErrWriter(ErrorKind::WouldBlock),
         LowercaseHexadecimalFormatter::new_default(),
@@ -162,7 +162,7 @@ fn test_write_would_block_is_not_logged() {
 }
 
 #[test]
-fn test_write_write_zero_is_not_logged() {
+fn write_write_zero_is_not_logged() {
     let mut stream = LoggedStream::new(
         ErrWriter(ErrorKind::WriteZero),
         LowercaseHexadecimalFormatter::new_default(),
@@ -176,7 +176,7 @@ fn test_write_write_zero_is_not_logged() {
 }
 
 #[tokio::test]
-async fn test_async_read_error_suppressed_by_filter_without_error() {
+async fn async_read_error_suppressed_by_filter_without_error() {
     use tokio::io::AsyncReadExt;
 
     let mut stream = LoggedStream::new(
@@ -193,7 +193,7 @@ async fn test_async_read_error_suppressed_by_filter_without_error() {
 }
 
 #[tokio::test]
-async fn test_async_write_error_suppressed_by_filter_without_error() {
+async fn async_write_error_suppressed_by_filter_without_error() {
     use tokio::io::AsyncWriteExt;
 
     let mut stream = LoggedStream::new(
@@ -209,7 +209,7 @@ async fn test_async_write_error_suppressed_by_filter_without_error() {
 }
 
 #[tokio::test]
-async fn test_async_read_error_logs_error_record() {
+async fn async_read_error_logs_error_record() {
     use tokio::io::AsyncReadExt;
 
     let mut stream = LoggedStream::new(
@@ -229,7 +229,7 @@ async fn test_async_read_error_logs_error_record() {
 }
 
 #[tokio::test]
-async fn test_async_write_error_logs_error_record() {
+async fn async_write_error_logs_error_record() {
     use tokio::io::AsyncWriteExt;
 
     let mut stream = LoggedStream::new(

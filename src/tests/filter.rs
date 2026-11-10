@@ -7,15 +7,15 @@ use super::helpers::CountingFilter;
 use super::helpers::CountingFormatter;
 use super::helpers::assert_send;
 use super::helpers::assert_unpin;
-use crate::buffer_formatter::LowercaseHexadecimalFormatter;
-use crate::event::Event;
-use crate::event::EventKind;
-use crate::filter::AllFilter;
-use crate::filter::AnyFilter;
-use crate::filter::DefaultFilter;
-use crate::filter::EventFilter;
+use crate::AllFilter;
+use crate::AnyFilter;
+use crate::DefaultFilter;
+use crate::Event;
+use crate::EventFilter;
+use crate::EventKind;
+use crate::EventKindFilter;
+use crate::LowercaseHexadecimalFormatter;
 use crate::filter::EventFilterDebug;
-use crate::filter::EventKindFilter;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -43,15 +43,7 @@ impl EventFilter for FirstByteFilter {
 }
 
 #[test]
-fn test_unpin() {
-    assert_unpin::<DefaultFilter>();
-    assert_unpin::<EventKindFilter>();
-    assert_unpin::<AllFilter>();
-    assert_unpin::<AnyFilter>();
-}
-
-#[test]
-fn test_default_filter() {
+fn default_filter() {
     assert!(DefaultFilter.check(&Event::message(EventKind::Read, "01:02:03:04:05:06")));
     assert!(DefaultFilter.check(&Event::message(EventKind::Write, "01:02:03:04:05:06")));
     assert!(DefaultFilter.check(&Event::message(EventKind::Drop, "deallocated")));
@@ -62,7 +54,7 @@ fn test_default_filter() {
 }
 
 #[test]
-fn test_event_kind_filter() {
+fn event_kind_filter() {
     let filter = EventKindFilter::new(&[EventKind::Read]);
     assert!(filter.check(&Event::message(EventKind::Read, "01:02:03:04:05:06")));
     assert!(!filter.check(&Event::message(EventKind::Write, "01:02:03:04:05:06")));
@@ -74,7 +66,7 @@ fn test_event_kind_filter() {
 }
 
 #[test]
-fn test_all_filter_empty() {
+fn all_filter_empty() {
     let filter = AllFilter::new(vec![]);
     // Empty conjunction should return true (vacuously true)
     assert!(filter.check(&Event::message(EventKind::Read, "test")));
@@ -83,7 +75,7 @@ fn test_all_filter_empty() {
 }
 
 #[test]
-fn test_all_filter_single() {
+fn all_filter_single() {
     let filter = AllFilter::new(vec![Box::new(EventKindFilter::new(&[EventKind::Read]))]);
 
     assert!(filter.check(&Event::message(EventKind::Read, "data")));
@@ -92,7 +84,7 @@ fn test_all_filter_single() {
 }
 
 #[test]
-fn test_all_filter_multiple_all_pass() {
+fn all_filter_multiple_all_pass() {
     // Both filters accept Read
     let filter = AllFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
@@ -103,7 +95,7 @@ fn test_all_filter_multiple_all_pass() {
 }
 
 #[test]
-fn test_all_filter_multiple_one_fails() {
+fn all_filter_multiple_one_fails() {
     // First accepts Write, second doesn't
     let filter = AllFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
@@ -114,7 +106,7 @@ fn test_all_filter_multiple_one_fails() {
 }
 
 #[test]
-fn test_all_filter_multiple_all_fail() {
+fn all_filter_multiple_all_fail() {
     let filter = AllFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read])),
         Box::new(EventKindFilter::new(&[EventKind::Write])),
@@ -124,7 +116,7 @@ fn test_all_filter_multiple_all_fail() {
 }
 
 #[test]
-fn test_all_filter_with_default() {
+fn all_filter_with_default() {
     // Combining with DefaultFilter (which always returns true)
     let filter = AllFilter::new(vec![
         Box::new(DefaultFilter),
@@ -136,7 +128,7 @@ fn test_all_filter_with_default() {
 }
 
 #[test]
-fn test_any_filter_empty() {
+fn any_filter_empty() {
     let filter = AnyFilter::new(vec![]);
     // Empty disjunction should return false
     assert!(!filter.check(&Event::message(EventKind::Read, "test")));
@@ -145,7 +137,7 @@ fn test_any_filter_empty() {
 }
 
 #[test]
-fn test_any_filter_single() {
+fn any_filter_single() {
     let filter = AnyFilter::new(vec![Box::new(EventKindFilter::new(&[EventKind::Read]))]);
 
     assert!(filter.check(&Event::message(EventKind::Read, "data")));
@@ -154,7 +146,7 @@ fn test_any_filter_single() {
 }
 
 #[test]
-fn test_any_filter_multiple_first_passes() {
+fn any_filter_multiple_first_passes() {
     let filter = AnyFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read])),
         Box::new(EventKindFilter::new(&[EventKind::Write])),
@@ -164,7 +156,7 @@ fn test_any_filter_multiple_first_passes() {
 }
 
 #[test]
-fn test_any_filter_multiple_second_passes() {
+fn any_filter_multiple_second_passes() {
     let filter = AnyFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read])),
         Box::new(EventKindFilter::new(&[EventKind::Write])),
@@ -174,7 +166,7 @@ fn test_any_filter_multiple_second_passes() {
 }
 
 #[test]
-fn test_any_filter_multiple_all_pass() {
+fn any_filter_multiple_all_pass() {
     let filter = AnyFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Write])),
         Box::new(EventKindFilter::new(&[EventKind::Read, EventKind::Error])),
@@ -184,7 +176,7 @@ fn test_any_filter_multiple_all_pass() {
 }
 
 #[test]
-fn test_any_filter_multiple_all_fail() {
+fn any_filter_multiple_all_fail() {
     let filter = AnyFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read])),
         Box::new(EventKindFilter::new(&[EventKind::Write])),
@@ -194,7 +186,7 @@ fn test_any_filter_multiple_all_fail() {
 }
 
 #[test]
-fn test_any_filter_with_default() {
+fn any_filter_with_default() {
     // Combining with DefaultFilter (which always returns true)
     let filter = AnyFilter::new(vec![
         Box::new(EventKindFilter::new(&[EventKind::Read])),
@@ -208,7 +200,7 @@ fn test_any_filter_with_default() {
 }
 
 #[test]
-fn test_nested_composite_filters() {
+fn nested_composite_filters() {
     // (Read OR Write)
     // Implemented as: AllFilter containing AnyFilter for (Read OR Write)
     let filter = AllFilter::new(vec![Box::new(AnyFilter::new(vec![
@@ -223,7 +215,7 @@ fn test_nested_composite_filters() {
 }
 
 #[test]
-fn test_complex_nested_filters() {
+fn complex_nested_filters() {
     // AllFilter containing two AnyFilters:
     // (Read OR Write) AND (Read OR Error)
     // This should only pass for Read
@@ -245,7 +237,7 @@ fn test_complex_nested_filters() {
 }
 
 #[test]
-fn test_provided_filters_decide_by_kind_without_formatting() {
+fn provided_filters_decide_by_kind_without_formatting() {
     let kinds = [
         EventKind::Open,
         EventKind::Read,
@@ -301,7 +293,7 @@ fn test_provided_filters_decide_by_kind_without_formatting() {
 }
 
 #[test]
-fn test_box_forwards_check() {
+fn box_forwards_check() {
     let formatter = LowercaseHexadecimalFormatter::new_default();
     let handshake = Event::read(&[0x16, 0x03], &formatter);
     let application_data = Event::read(&[0x17, 0x03], &formatter);
@@ -322,7 +314,7 @@ fn test_box_forwards_check() {
 }
 
 #[test]
-fn test_composite_formats_once_for_several_children() {
+fn composite_formats_once_for_several_children() {
     let formatter = CountingFormatter::default();
     let read = Event::read(&[0x0a, 0xff], &formatter);
 
@@ -335,7 +327,7 @@ fn test_composite_formats_once_for_several_children() {
 }
 
 #[test]
-fn test_composite_keeps_child_order() {
+fn composite_keeps_child_order() {
     // A child that asks for the formatted record comes before a kind filter: it still sees the write, and the
     // write is formatted for it.
     let calls = Arc::new(AtomicUsize::new(0));
@@ -375,7 +367,7 @@ fn test_composite_keeps_child_order() {
 }
 
 #[test]
-fn test_composite_mixes_formatted_and_raw_children() {
+fn composite_mixes_formatted_and_raw_children() {
     // The first child judges the formatted message and accepts; the raw child after it still decides on the
     // raw bytes. Each event is formatted once, for the first child.
     let formatter = CountingFormatter::default();
@@ -398,8 +390,24 @@ fn test_composite_mixes_formatted_and_raw_children() {
     assert_eq!(formatter.0.load(Ordering::SeqCst), 2);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Trait assertions
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn assert_event_filter<T: EventFilter>() {}
+
+fn assert_debug<T: fmt::Debug>() {}
+
 #[test]
-fn test_trait_object_safety() {
+fn unpin() {
+    assert_unpin::<DefaultFilter>();
+    assert_unpin::<EventKindFilter>();
+    assert_unpin::<AllFilter>();
+    assert_unpin::<AnyFilter>();
+}
+
+#[test]
+fn trait_object_safety() {
     // Assert trait object construct.
     let default: Box<dyn EventFilter> = Box::<DefaultFilter>::default();
     let event_kind: Box<dyn EventFilter> = Box::new(EventKindFilter::new(&[]));
@@ -422,10 +430,8 @@ fn test_trait_object_safety() {
     assert!(!any.check(&read));
 }
 
-fn assert_event_filter<T: EventFilter>() {}
-
 #[test]
-fn test_box() {
+fn boxed() {
     assert_event_filter::<Box<dyn EventFilter>>();
     assert_event_filter::<Box<EventKindFilter>>();
     assert_event_filter::<Box<DefaultFilter>>();
@@ -434,7 +440,7 @@ fn test_box() {
 }
 
 #[test]
-fn test_send() {
+fn send() {
     assert_send::<EventKindFilter>();
     assert_send::<DefaultFilter>();
     assert_send::<AllFilter>();
@@ -447,10 +453,8 @@ fn test_send() {
     assert_send::<Box<AnyFilter>>();
 }
 
-fn assert_debug<T: fmt::Debug>() {}
-
 #[test]
-fn test_debug() {
+fn debug() {
     assert_debug::<DefaultFilter>();
     assert_debug::<EventKindFilter>();
     assert_debug::<AllFilter>();
@@ -463,7 +467,7 @@ fn test_debug() {
 }
 
 #[test]
-fn test_debug_output() {
+fn debug_output() {
     // DefaultFilter
     assert_eq!(format!("{:?}", DefaultFilter), "DefaultFilter");
 

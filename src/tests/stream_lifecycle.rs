@@ -15,7 +15,7 @@ use std::io::Cursor;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_log_open_logs_open_record() {
+fn log_open_logs_open_record() {
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         LowercaseHexadecimalFormatter::new_default(),
@@ -34,7 +34,7 @@ fn test_log_open_logs_open_record() {
 }
 
 #[test]
-fn test_log_open_passes_filter_allowing_open() {
+fn log_open_passes_filter_allowing_open() {
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         LowercaseHexadecimalFormatter::new_default(),
@@ -50,7 +50,7 @@ fn test_log_open_passes_filter_allowing_open() {
 }
 
 #[test]
-fn test_log_open_suppressed_by_filter_without_open() {
+fn log_open_suppressed_by_filter_without_open() {
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         LowercaseHexadecimalFormatter::new_default(),
@@ -66,7 +66,7 @@ fn test_log_open_suppressed_by_filter_without_open() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_drop_logs_drop_record() {
+fn drop_logs_drop_record() {
     // The ChannelLogger's receiver outlives the stream, so we can observe the Drop record.
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
@@ -86,7 +86,7 @@ fn test_drop_logs_drop_record() {
 }
 
 #[tokio::test]
-async fn test_async_shutdown_logs_shutdown_record() {
+async fn async_shutdown_logs_shutdown_record() {
     use tokio::io::AsyncWriteExt;
 
     let (client, _server) = tokio::io::duplex(64);

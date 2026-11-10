@@ -4,12 +4,12 @@
 
 use super::helpers::assert_send;
 use super::helpers::assert_unpin;
-use crate::buffer_formatter::BinaryFormatter;
-use crate::buffer_formatter::BufferFormatter;
-use crate::buffer_formatter::DecimalFormatter;
-use crate::buffer_formatter::LowercaseHexadecimalFormatter;
-use crate::buffer_formatter::OctalFormatter;
-use crate::buffer_formatter::UppercaseHexadecimalFormatter;
+use crate::BinaryFormatter;
+use crate::BufferFormatter;
+use crate::DecimalFormatter;
+use crate::LowercaseHexadecimalFormatter;
+use crate::OctalFormatter;
+use crate::UppercaseHexadecimalFormatter;
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::thread;
@@ -17,7 +17,7 @@ use std::thread;
 const FORMATTING_TEST_VALUES: &[u8] = &[10, 11, 12, 13, 14, 15, 16, 17, 18];
 
 #[test]
-fn test_buffer_formatting() {
+fn buffer_formatting() {
     let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_default();
     let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_default();
     let decimal = DecimalFormatter::new_default();
@@ -49,7 +49,7 @@ fn test_buffer_formatting() {
 }
 
 #[test]
-fn test_custom_separator() {
+fn custom_separator() {
     let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new(Some("-"));
     let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new(Some("-"));
     let decimal = DecimalFormatter::new(Some("-"));
@@ -81,7 +81,7 @@ fn test_custom_separator() {
 }
 
 #[test]
-fn test_static_separator() {
+fn static_separator() {
     // new_static should produce same results as new, just without allocation
     let lowercase_hexadecimal = LowercaseHexadecimalFormatter::new_static(Some("-"));
     let uppercase_hexadecimal = UppercaseHexadecimalFormatter::new_static(Some("-"));
@@ -114,7 +114,7 @@ fn test_static_separator() {
 }
 
 #[test]
-fn test_owned_separator() {
+fn owned_separator() {
     // Test new_owned with runtime strings
     let runtime_sep = String::from(" | ");
     let formatter = DecimalFormatter::new_owned(Some(runtime_sep));
@@ -129,7 +129,7 @@ fn test_owned_separator() {
 }
 
 #[test]
-fn test_from_cow() {
+fn from_cow() {
     // Test with borrowed Cow
     let sep_borrowed: Cow<'static, str> = Cow::Borrowed(" | ");
     let formatter = DecimalFormatter::from(sep_borrowed);
@@ -156,7 +156,7 @@ fn test_from_cow() {
 }
 
 #[test]
-fn test_from_static_str() {
+fn from_static_str() {
     // Test From<&str> with string literals
     let formatter = DecimalFormatter::from("-");
     assert_eq!(formatter.get_separator(), "-");
@@ -188,7 +188,7 @@ fn test_from_static_str() {
 }
 
 #[test]
-fn test_from_string() {
+fn from_string() {
     // Test From<String>
     let separator = String::from(" -> ");
     let formatter = DecimalFormatter::from(separator);
@@ -214,7 +214,7 @@ fn test_from_string() {
 }
 
 #[test]
-fn test_from_option_static_str() {
+fn from_option_static_str() {
     // Test From<Option<&str>> with Some
     let formatter = DecimalFormatter::from(Some("-"));
     assert_eq!(formatter.get_separator(), "-");
@@ -245,7 +245,7 @@ fn test_from_option_static_str() {
 }
 
 #[test]
-fn test_from_option_string() {
+fn from_option_string() {
     // Test From<Option<String>> with Some
     let separator = Some(String::from(" | "));
     let formatter = DecimalFormatter::from(separator);
@@ -271,7 +271,7 @@ fn test_from_option_string() {
 }
 
 #[test]
-fn test_format_byte() {
+fn format_byte() {
     // Test individual byte formatting
     let decimal = DecimalFormatter::new_default();
     let octal = OctalFormatter::new_default();
@@ -295,7 +295,7 @@ fn test_format_byte() {
 }
 
 #[test]
-fn test_edge_cases() {
+fn edge_cases() {
     let formatter = DecimalFormatter::new_default();
 
     // Empty buffer
@@ -314,7 +314,7 @@ fn test_edge_cases() {
 }
 
 #[test]
-fn test_default_trait() {
+fn default_trait() {
     // Test Default implementation
     let decimal = DecimalFormatter::default();
     let octal = OctalFormatter::default();
@@ -331,7 +331,7 @@ fn test_default_trait() {
 }
 
 #[test]
-fn test_clone() {
+fn clone() {
     // Test Clone trait
     let original = DecimalFormatter::new(Some("-"));
     let cloned = original.clone();
@@ -349,90 +349,7 @@ fn test_clone() {
 }
 
 #[test]
-fn test_unpin() {
-    assert_unpin::<BinaryFormatter>();
-    assert_unpin::<DecimalFormatter>();
-    assert_unpin::<LowercaseHexadecimalFormatter>();
-    assert_unpin::<UppercaseHexadecimalFormatter>();
-    assert_unpin::<OctalFormatter>();
-}
-
-#[test]
-fn test_trait_object_safety() {
-    // Assert trait object construction.
-    let lowercase_hexadecimal: Box<dyn BufferFormatter> =
-        Box::new(LowercaseHexadecimalFormatter::new(None));
-    let uppercase_hexadecimal: Box<dyn BufferFormatter> =
-        Box::new(UppercaseHexadecimalFormatter::new(None));
-    let decimal: Box<dyn BufferFormatter> = Box::new(DecimalFormatter::new(None));
-    let octal: Box<dyn BufferFormatter> = Box::new(OctalFormatter::new(None));
-    let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
-
-    // Assert that trait object methods are dispatchable.
-    assert_eq!(lowercase_hexadecimal.get_separator(), ":");
-    assert!(!lowercase_hexadecimal.format_buffer(b"test").is_empty());
-
-    assert_eq!(uppercase_hexadecimal.get_separator(), ":");
-    assert!(!uppercase_hexadecimal.format_buffer(b"test").is_empty());
-
-    assert_eq!(decimal.get_separator(), ":");
-    assert!(!decimal.format_buffer(b"test").is_empty());
-
-    assert_eq!(octal.get_separator(), ":");
-    assert!(!octal.format_buffer(b"test").is_empty());
-
-    assert_eq!(binary.get_separator(), ":");
-    assert!(!binary.format_buffer(b"test").is_empty());
-}
-
-fn assert_buffer_formatter<T: BufferFormatter>() {}
-
-#[test]
-fn test_box() {
-    assert_buffer_formatter::<Box<dyn BufferFormatter>>();
-    assert_buffer_formatter::<Box<LowercaseHexadecimalFormatter>>();
-    assert_buffer_formatter::<Box<UppercaseHexadecimalFormatter>>();
-    assert_buffer_formatter::<Box<DecimalFormatter>>();
-    assert_buffer_formatter::<Box<OctalFormatter>>();
-    assert_buffer_formatter::<Box<BinaryFormatter>>();
-}
-
-#[test]
-fn test_arc() {
-    assert_buffer_formatter::<Arc<LowercaseHexadecimalFormatter>>();
-    assert_buffer_formatter::<Arc<UppercaseHexadecimalFormatter>>();
-    assert_buffer_formatter::<Arc<DecimalFormatter>>();
-    assert_buffer_formatter::<Arc<OctalFormatter>>();
-    assert_buffer_formatter::<Arc<BinaryFormatter>>();
-    assert_buffer_formatter::<Arc<dyn BufferFormatter + Sync>>();
-}
-
-#[test]
-fn test_send() {
-    assert_send::<LowercaseHexadecimalFormatter>();
-    assert_send::<UppercaseHexadecimalFormatter>();
-    assert_send::<DecimalFormatter>();
-    assert_send::<OctalFormatter>();
-    assert_send::<BinaryFormatter>();
-
-    assert_send::<Box<dyn BufferFormatter>>();
-    assert_send::<Box<LowercaseHexadecimalFormatter>>();
-    assert_send::<Box<UppercaseHexadecimalFormatter>>();
-    assert_send::<Box<DecimalFormatter>>();
-    assert_send::<Box<OctalFormatter>>();
-    assert_send::<Box<BinaryFormatter>>();
-
-    // Arc wrapper types
-    assert_send::<Arc<LowercaseHexadecimalFormatter>>();
-    assert_send::<Arc<UppercaseHexadecimalFormatter>>();
-    assert_send::<Arc<DecimalFormatter>>();
-    assert_send::<Arc<OctalFormatter>>();
-    assert_send::<Arc<BinaryFormatter>>();
-    assert_send::<Arc<dyn BufferFormatter + Sync>>();
-}
-
-#[test]
-fn test_arc_impl() {
+fn arc_impl() {
     // Test Arc<T> implementation
     let formatter = Arc::new(DecimalFormatter::new(Some(" -> ")));
     assert_eq!(formatter.get_separator(), " -> ");
@@ -460,7 +377,7 @@ fn test_arc_impl() {
 }
 
 #[test]
-fn test_arc_trait_object() {
+fn arc_trait_object() {
     // Test Arc<dyn BufferFormatter + Sync>
     let formatter: Arc<dyn BufferFormatter + Sync> = Arc::new(DecimalFormatter::new(Some("-")));
 
@@ -491,7 +408,7 @@ fn test_arc_trait_object() {
 }
 
 #[test]
-fn test_arc_thread_safety() {
+fn arc_thread_safety() {
     // Test that Arc<T: BufferFormatter> can be shared across threads
     let formatter = Arc::new(DecimalFormatter::new(Some(" | ")));
     let formatter_clone = Arc::clone(&formatter);
@@ -506,7 +423,7 @@ fn test_arc_thread_safety() {
 }
 
 #[test]
-fn test_arc_wrapper_types() {
+fn arc_wrapper_types() {
     // Test that Arc types work
     let arc_formatter = Arc::new(OctalFormatter::new(Some("-")));
     assert_eq!(arc_formatter.format_buffer(&[8, 9]), "010-011");
@@ -534,7 +451,7 @@ impl BufferFormatter for LengthFormatter {
 }
 
 #[test]
-fn test_box_and_arc_forward_format_buffer() {
+fn box_and_arc_forward_format_buffer() {
     // The default would join the formatted bytes into "01:02"; the override has to win through every wrapper.
     let boxed: Box<dyn BufferFormatter> = Box::new(LengthFormatter);
     assert_eq!(boxed.format_buffer(&[0x01, 0x02]), "2 bytes");
@@ -547,7 +464,7 @@ fn test_box_and_arc_forward_format_buffer() {
 }
 
 #[test]
-fn test_partial_eq() {
+fn partial_eq() {
     // Test equality with same separator
     let formatter1 = DecimalFormatter::new(Some("-"));
     let formatter2 = DecimalFormatter::new(Some("-"));
@@ -581,7 +498,7 @@ fn test_partial_eq() {
 }
 
 #[test]
-fn test_hash() {
+fn hash() {
     use std::collections::HashMap;
 
     // Test that formatters with same separator hash to same value
@@ -628,7 +545,7 @@ fn test_hash() {
 }
 
 #[test]
-fn test_display() {
+fn display() {
     // Test Display implementation with regular separators
     let formatter = DecimalFormatter::new(Some("-"));
     assert_eq!(
@@ -667,7 +584,7 @@ fn test_display() {
 }
 
 #[test]
-fn test_display_with_special_characters() {
+fn display_with_special_characters() {
     // Test Display implementation properly escapes special characters
     // This prevents log forging and ensures unambiguous output
 
@@ -730,4 +647,91 @@ fn test_display_with_special_characters() {
     let output = format!("{}", formatter);
     // Should contain the escaped or properly formatted unicode
     assert!(output.contains("separator:"));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Trait assertions
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn assert_buffer_formatter<T: BufferFormatter>() {}
+
+#[test]
+fn unpin() {
+    assert_unpin::<BinaryFormatter>();
+    assert_unpin::<DecimalFormatter>();
+    assert_unpin::<LowercaseHexadecimalFormatter>();
+    assert_unpin::<UppercaseHexadecimalFormatter>();
+    assert_unpin::<OctalFormatter>();
+}
+
+#[test]
+fn trait_object_safety() {
+    // Assert trait object construction.
+    let lowercase_hexadecimal: Box<dyn BufferFormatter> =
+        Box::new(LowercaseHexadecimalFormatter::new(None));
+    let uppercase_hexadecimal: Box<dyn BufferFormatter> =
+        Box::new(UppercaseHexadecimalFormatter::new(None));
+    let decimal: Box<dyn BufferFormatter> = Box::new(DecimalFormatter::new(None));
+    let octal: Box<dyn BufferFormatter> = Box::new(OctalFormatter::new(None));
+    let binary: Box<dyn BufferFormatter> = Box::new(BinaryFormatter::new(None));
+
+    // Assert that trait object methods are dispatchable.
+    assert_eq!(lowercase_hexadecimal.get_separator(), ":");
+    assert!(!lowercase_hexadecimal.format_buffer(b"test").is_empty());
+
+    assert_eq!(uppercase_hexadecimal.get_separator(), ":");
+    assert!(!uppercase_hexadecimal.format_buffer(b"test").is_empty());
+
+    assert_eq!(decimal.get_separator(), ":");
+    assert!(!decimal.format_buffer(b"test").is_empty());
+
+    assert_eq!(octal.get_separator(), ":");
+    assert!(!octal.format_buffer(b"test").is_empty());
+
+    assert_eq!(binary.get_separator(), ":");
+    assert!(!binary.format_buffer(b"test").is_empty());
+}
+
+#[test]
+fn boxed() {
+    assert_buffer_formatter::<Box<dyn BufferFormatter>>();
+    assert_buffer_formatter::<Box<LowercaseHexadecimalFormatter>>();
+    assert_buffer_formatter::<Box<UppercaseHexadecimalFormatter>>();
+    assert_buffer_formatter::<Box<DecimalFormatter>>();
+    assert_buffer_formatter::<Box<OctalFormatter>>();
+    assert_buffer_formatter::<Box<BinaryFormatter>>();
+}
+
+#[test]
+fn arc() {
+    assert_buffer_formatter::<Arc<LowercaseHexadecimalFormatter>>();
+    assert_buffer_formatter::<Arc<UppercaseHexadecimalFormatter>>();
+    assert_buffer_formatter::<Arc<DecimalFormatter>>();
+    assert_buffer_formatter::<Arc<OctalFormatter>>();
+    assert_buffer_formatter::<Arc<BinaryFormatter>>();
+    assert_buffer_formatter::<Arc<dyn BufferFormatter + Sync>>();
+}
+
+#[test]
+fn send() {
+    assert_send::<LowercaseHexadecimalFormatter>();
+    assert_send::<UppercaseHexadecimalFormatter>();
+    assert_send::<DecimalFormatter>();
+    assert_send::<OctalFormatter>();
+    assert_send::<BinaryFormatter>();
+
+    assert_send::<Box<dyn BufferFormatter>>();
+    assert_send::<Box<LowercaseHexadecimalFormatter>>();
+    assert_send::<Box<UppercaseHexadecimalFormatter>>();
+    assert_send::<Box<DecimalFormatter>>();
+    assert_send::<Box<OctalFormatter>>();
+    assert_send::<Box<BinaryFormatter>>();
+
+    // Arc wrapper types
+    assert_send::<Arc<LowercaseHexadecimalFormatter>>();
+    assert_send::<Arc<UppercaseHexadecimalFormatter>>();
+    assert_send::<Arc<DecimalFormatter>>();
+    assert_send::<Arc<OctalFormatter>>();
+    assert_send::<Arc<BinaryFormatter>>();
+    assert_send::<Arc<dyn BufferFormatter + Sync>>();
 }

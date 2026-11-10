@@ -5,13 +5,13 @@
 
 use super::helpers::assert_send;
 use super::helpers::assert_unpin;
-use crate::event::EventKind;
-use crate::logger::ChannelLogger;
-use crate::logger::ConsoleLogger;
-use crate::logger::FileLogger;
-use crate::logger::Logger;
-use crate::logger::MemoryStorageLogger;
-use crate::record::Record;
+use crate::ChannelLogger;
+use crate::ConsoleLogger;
+use crate::EventKind;
+use crate::FileLogger;
+use crate::Logger;
+use crate::MemoryStorageLogger;
+use crate::Record;
 use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
@@ -82,13 +82,13 @@ fn captured_records() -> Vec<(log::Level, String)> {
 }
 
 #[test]
-fn test_console_logger_prefix_default_none() {
+fn console_logger_prefix_default_none() {
     assert_eq!(ConsoleLogger::new_unchecked("debug").prefix(), None);
     assert_eq!(ConsoleLogger::new("info").unwrap().prefix(), None);
 }
 
 #[test]
-fn test_console_logger_with_prefix() {
+fn console_logger_with_prefix() {
     // Static string literal.
     let logger = ConsoleLogger::new_unchecked("debug").with_prefix("[conn 5] ");
     assert_eq!(logger.prefix(), Some("[conn 5] "));
@@ -100,7 +100,7 @@ fn test_console_logger_with_prefix() {
 }
 
 #[test]
-fn test_console_logger_set_and_clear_prefix() {
+fn console_logger_set_and_clear_prefix() {
     let mut logger = ConsoleLogger::new_unchecked("debug");
     assert_eq!(logger.prefix(), None);
 
@@ -115,7 +115,7 @@ fn test_console_logger_set_and_clear_prefix() {
 }
 
 #[test]
-fn test_console_logger_logs_prefix_before_kind() {
+fn console_logger_logs_prefix_before_kind() {
     install_capturing_logger();
 
     let mut logger = ConsoleLogger::new_unchecked("debug");
@@ -145,7 +145,7 @@ fn test_console_logger_logs_prefix_before_kind() {
 }
 
 #[test]
-fn test_console_logger_forces_error_level() {
+fn console_logger_forces_error_level() {
     install_capturing_logger();
 
     // The logger is configured at Debug, below Error. Non-error records are logged at the
@@ -169,7 +169,7 @@ fn test_console_logger_forces_error_level() {
 }
 
 #[test]
-fn test_console_logger_empty_prefix_matches_no_prefix() {
+fn console_logger_empty_prefix_matches_no_prefix() {
     install_capturing_logger();
 
     let mut logger = ConsoleLogger::new_unchecked("debug");
@@ -213,7 +213,7 @@ fn split_timestamp(line: &str) -> (&str, &str) {
 }
 
 #[test]
-fn test_file_logger_prefix_default_none() {
+fn file_logger_prefix_default_none() {
     let path = temp_log_path("prefix-default");
     let logger = FileLogger::open(&path).unwrap();
 
@@ -224,7 +224,7 @@ fn test_file_logger_prefix_default_none() {
 }
 
 #[test]
-fn test_file_logger_set_and_clear_prefix() {
+fn file_logger_set_and_clear_prefix() {
     let path = temp_log_path("prefix-set");
     let mut logger = FileLogger::open(&path).unwrap();
     assert_eq!(logger.prefix(), None);
@@ -243,7 +243,7 @@ fn test_file_logger_set_and_clear_prefix() {
 }
 
 #[test]
-fn test_file_logger_writes_prefix_after_timestamp() {
+fn file_logger_writes_prefix_after_timestamp() {
     let path = temp_log_path("prefix-placement");
     let mut logger = FileLogger::open(&path).unwrap();
 
@@ -284,7 +284,7 @@ fn test_file_logger_writes_prefix_after_timestamp() {
 }
 
 #[test]
-fn test_file_logger_concurrent_loggers_do_not_interleave_lines() {
+fn file_logger_concurrent_loggers_do_not_interleave_lines() {
     const THREADS: usize = 8;
     const RECORDS: usize = 150;
 
@@ -338,7 +338,7 @@ fn test_file_logger_concurrent_loggers_do_not_interleave_lines() {
 fn assert_logger<T: Logger>() {}
 
 #[test]
-fn test_unpin() {
+fn unpin() {
     assert_unpin::<ConsoleLogger>();
     assert_unpin::<ChannelLogger>();
     assert_unpin::<MemoryStorageLogger>();
@@ -346,7 +346,7 @@ fn test_unpin() {
 }
 
 #[test]
-fn test_send() {
+fn send() {
     assert_send::<ConsoleLogger>();
     assert_send::<MemoryStorageLogger>();
     assert_send::<ChannelLogger>();
@@ -360,7 +360,7 @@ fn test_send() {
 }
 
 #[test]
-fn test_box() {
+fn boxed() {
     assert_logger::<Box<dyn Logger>>();
     assert_logger::<Box<ConsoleLogger>>();
     assert_logger::<Box<MemoryStorageLogger>>();
@@ -369,7 +369,7 @@ fn test_box() {
 }
 
 #[test]
-fn test_trait_object_safety() {
+fn trait_object_safety() {
     // Assert trait object construct.
     let mut console: Box<dyn Logger> = Box::new(ConsoleLogger::new_unchecked("debug"));
     let mut memory: Box<dyn Logger> = Box::new(MemoryStorageLogger::new(100));

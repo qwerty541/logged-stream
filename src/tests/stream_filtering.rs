@@ -131,7 +131,7 @@ impl tokio::io::AsyncWrite for OneByteAsyncWriter {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_read_suppressed_by_filter() {
+fn read_suppressed_by_filter() {
     // The filter allows only Write, so the read is not logged.
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x01, 0x02]),
@@ -147,7 +147,7 @@ fn test_read_suppressed_by_filter() {
 }
 
 #[test]
-fn test_write_suppressed_by_filter() {
+fn write_suppressed_by_filter() {
     // The filter allows only Read, so the write is not logged.
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
@@ -166,7 +166,7 @@ fn test_write_suppressed_by_filter() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_read_rejected_by_kind_is_not_formatted() {
+fn read_rejected_by_kind_is_not_formatted() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x01, 0x02]),
@@ -184,7 +184,7 @@ fn test_read_rejected_by_kind_is_not_formatted() {
 }
 
 #[test]
-fn test_write_rejected_by_kind_is_not_formatted() {
+fn write_rejected_by_kind_is_not_formatted() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let sink = Rc::new(RefCell::new(Vec::new()));
     let mut stream = LoggedStream::new(
@@ -202,7 +202,7 @@ fn test_write_rejected_by_kind_is_not_formatted() {
 }
 
 #[tokio::test]
-async fn test_async_read_and_write_rejected_by_kind_are_not_formatted() {
+async fn async_read_and_write_rejected_by_kind_are_not_formatted() {
     use tokio::io::AsyncReadExt;
     use tokio::io::AsyncWriteExt;
 
@@ -228,7 +228,7 @@ async fn test_async_read_and_write_rejected_by_kind_are_not_formatted() {
 }
 
 #[test]
-fn test_formatted_filter_sees_every_read_and_write_formatted() {
+fn formatted_filter_sees_every_read_and_write_formatted() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let seen = Arc::new(Mutex::new(Vec::new()));
     let mut stream = LoggedStream::new(
@@ -258,7 +258,7 @@ fn test_formatted_filter_sees_every_read_and_write_formatted() {
 }
 
 #[test]
-fn test_raw_filter_formats_only_the_reads_it_accepts() {
+fn raw_filter_formats_only_the_reads_it_accepts() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let shown = Arc::new(Mutex::new(Vec::new()));
     let mut stream = LoggedStream::new(
@@ -285,7 +285,7 @@ fn test_raw_filter_formats_only_the_reads_it_accepts() {
 }
 
 #[tokio::test]
-async fn test_async_raw_filter_sees_exactly_the_bytes_read_and_written() {
+async fn async_raw_filter_sees_exactly_the_bytes_read_and_written() {
     use tokio::io::AsyncReadExt;
     use tokio::io::AsyncWriteExt;
 
@@ -314,7 +314,7 @@ async fn test_async_raw_filter_sees_exactly_the_bytes_read_and_written() {
 }
 
 #[test]
-fn test_raw_filter_judges_events_without_bytes_too() {
+fn raw_filter_judges_events_without_bytes_too() {
     let shown = Arc::new(Mutex::new(Vec::new()));
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x17, 0x03]),
@@ -338,7 +338,7 @@ fn test_raw_filter_judges_events_without_bytes_too() {
 }
 
 #[tokio::test]
-async fn test_only_reads_and_writes_carry_bytes() {
+async fn only_reads_and_writes_carry_bytes() {
     use tokio::io::AsyncReadExt;
     use tokio::io::AsyncWriteExt;
 
@@ -383,7 +383,7 @@ async fn test_only_reads_and_writes_carry_bytes() {
 }
 
 #[test]
-fn test_formatting_child_before_kind_filter_formats_every_write() {
+fn formatting_child_before_kind_filter_formats_every_write() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let check_calls = Arc::new(AtomicUsize::new(0));
     let mut stream = LoggedStream::new(
@@ -407,7 +407,7 @@ fn test_formatting_child_before_kind_filter_formats_every_write() {
 }
 
 #[test]
-fn test_kind_filter_before_formatting_child_skips_formatting() {
+fn kind_filter_before_formatting_child_skips_formatting() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let check_calls = Arc::new(AtomicUsize::new(0));
     let mut stream = LoggedStream::new(
@@ -431,7 +431,7 @@ fn test_kind_filter_before_formatting_child_skips_formatting() {
 }
 
 #[test]
-fn test_raw_filter_sees_only_the_bytes_moved() {
+fn raw_filter_sees_only_the_bytes_moved() {
     // A short read: two bytes into an eight-byte buffer.
     let shown = Arc::new(Mutex::new(Vec::new()));
     let mut reader = LoggedStream::new(
@@ -461,7 +461,7 @@ fn test_raw_filter_sees_only_the_bytes_moved() {
 }
 
 #[tokio::test]
-async fn test_async_raw_filter_sees_each_partial_read_and_write() {
+async fn async_raw_filter_sees_each_partial_read_and_write() {
     use tokio::io::AsyncReadExt;
     use tokio::io::AsyncWriteExt;
 
@@ -494,7 +494,7 @@ async fn test_async_raw_filter_sees_each_partial_read_and_write() {
 }
 
 #[test]
-fn test_raw_filter_sees_empty_read_at_end_of_stream() {
+fn raw_filter_sees_empty_read_at_end_of_stream() {
     let format_calls = Arc::new(AtomicUsize::new(0));
     let shown = Arc::new(Mutex::new(Vec::new()));
     let mut stream = LoggedStream::new(
@@ -520,7 +520,7 @@ fn test_raw_filter_sees_empty_read_at_end_of_stream() {
 }
 
 #[tokio::test]
-async fn test_async_read_that_adds_nothing_is_not_passed_to_the_filter() {
+async fn async_read_that_adds_nothing_is_not_passed_to_the_filter() {
     use tokio::io::AsyncReadExt;
 
     let shown = Arc::new(Mutex::new(Vec::new()));

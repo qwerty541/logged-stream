@@ -2,12 +2,12 @@
 //! made from a message, and a `Debug` that does not format.
 
 use super::helpers::CountingFormatter;
-use crate::event::Event;
-use crate::event::EventKind;
+use crate::Event;
+use crate::EventKind;
 use std::sync::atomic::Ordering;
 
 #[test]
-fn test_event_exposes_kind_and_bytes_without_formatting() {
+fn event_exposes_kind_and_bytes_without_formatting() {
     let formatter = CountingFormatter::default();
     let read = Event::read(&[0x0a, 0xff], &formatter);
     let write = Event::write(&[0x01], &formatter);
@@ -20,7 +20,7 @@ fn test_event_exposes_kind_and_bytes_without_formatting() {
 }
 
 #[test]
-fn test_event_formats_once_and_reuses_the_record() {
+fn event_formats_once_and_reuses_the_record() {
     let formatter = CountingFormatter::default();
     let event = Event::write(&[0x0a, 0xff], &formatter);
 
@@ -35,7 +35,7 @@ fn test_event_formats_once_and_reuses_the_record() {
 }
 
 #[test]
-fn test_event_into_record_formats_when_nothing_asked() {
+fn event_into_record_formats_when_nothing_asked() {
     let formatter = CountingFormatter::default();
     let event = Event::read(&[0x01, 0x02], &formatter);
 
@@ -46,7 +46,7 @@ fn test_event_into_record_formats_when_nothing_asked() {
 }
 
 #[test]
-fn test_event_message_has_no_bytes_and_carries_the_message() {
+fn event_message_has_no_bytes_and_carries_the_message() {
     let event = Event::message(EventKind::Error, "Error during read: boom");
 
     assert_eq!(event.kind(), EventKind::Error);
@@ -66,7 +66,7 @@ fn test_event_message_has_no_bytes_and_carries_the_message() {
 }
 
 #[test]
-fn test_event_debug_does_not_format() {
+fn event_debug_does_not_format() {
     let formatter = CountingFormatter::default();
     let event = Event::read(&[0x01], &formatter);
 

@@ -24,7 +24,7 @@ use std::rc::Rc;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_read_returns_inner_bytes_unchanged() {
+fn read_returns_inner_bytes_unchanged() {
     let data = vec![0x01, 0x02, 0x03, 0x04];
     let mut stream = LoggedStream::new(
         Cursor::new(data.clone()),
@@ -40,7 +40,7 @@ fn test_read_returns_inner_bytes_unchanged() {
 }
 
 #[test]
-fn test_write_reaches_inner_stream() {
+fn write_reaches_inner_stream() {
     let sink = Rc::new(RefCell::new(Vec::new()));
     let mut stream = LoggedStream::new(
         RecordingWriter(Rc::clone(&sink)),
@@ -59,7 +59,7 @@ fn test_write_reaches_inner_stream() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_read_logs_read_record_with_formatted_content() {
+fn read_logs_read_record_with_formatted_content() {
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x0a, 0xff]),
         LowercaseHexadecimalFormatter::new_default(),
@@ -77,7 +77,7 @@ fn test_read_logs_read_record_with_formatted_content() {
 }
 
 #[test]
-fn test_read_uses_configured_formatter() {
+fn read_uses_configured_formatter() {
     let mut stream = LoggedStream::new(
         Cursor::new(vec![10, 255]),
         DecimalFormatter::new_default(),
@@ -92,7 +92,7 @@ fn test_read_uses_configured_formatter() {
 }
 
 #[test]
-fn test_multiple_reads_log_in_order() {
+fn multiple_reads_log_in_order() {
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x01, 0x02, 0x03, 0x04]),
         LowercaseHexadecimalFormatter::new_default(),
@@ -111,7 +111,7 @@ fn test_multiple_reads_log_in_order() {
 }
 
 #[tokio::test]
-async fn test_async_read_logs_read_record() {
+async fn async_read_logs_read_record() {
     use tokio::io::AsyncReadExt;
     use tokio::io::AsyncWriteExt;
 
@@ -140,7 +140,7 @@ async fn test_async_read_logs_read_record() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_write_logs_write_record_with_formatted_content() {
+fn write_logs_write_record_with_formatted_content() {
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         UppercaseHexadecimalFormatter::new_default(),
@@ -157,7 +157,7 @@ fn test_write_logs_write_record_with_formatted_content() {
 }
 
 #[test]
-fn test_flush_does_not_log() {
+fn flush_does_not_log() {
     let mut stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         LowercaseHexadecimalFormatter::new_default(),
@@ -171,7 +171,7 @@ fn test_flush_does_not_log() {
 }
 
 #[tokio::test]
-async fn test_async_write_logs_write_record() {
+async fn async_write_logs_write_record() {
     use tokio::io::AsyncWriteExt;
 
     let (client, _server) = tokio::io::duplex(64);
@@ -195,7 +195,7 @@ async fn test_async_write_logs_write_record() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_memory_storage_get_and_clear() {
+fn memory_storage_get_and_clear() {
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x01, 0x02]),
         LowercaseHexadecimalFormatter::new_default(),
@@ -212,7 +212,7 @@ fn test_memory_storage_get_and_clear() {
 }
 
 #[test]
-fn test_channel_logger_delivers_records() {
+fn channel_logger_delivers_records() {
     let mut stream = LoggedStream::new(
         Cursor::new(vec![0x01, 0x02]),
         LowercaseHexadecimalFormatter::new_default(),
@@ -234,7 +234,7 @@ fn test_channel_logger_delivers_records() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[test]
-fn test_send() {
+fn send() {
     assert_send::<
         LoggedStream<
             Cursor<Vec<u8>>,
@@ -246,7 +246,7 @@ fn test_send() {
 }
 
 #[test]
-fn test_unpin() {
+fn unpin() {
     assert_unpin::<
         LoggedStream<
             Cursor<Vec<u8>>,
@@ -258,7 +258,7 @@ fn test_unpin() {
 }
 
 #[test]
-fn test_debug() {
+fn debug() {
     let stream = LoggedStream::new(
         Cursor::new(Vec::<u8>::new()),
         LowercaseHexadecimalFormatter::new_default(),
