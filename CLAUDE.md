@@ -106,10 +106,10 @@ tests, docs, and the changelog.
   Box<T>`); `BufferFormatter` and `Logger` have one `Box<Concrete>` impl per provided type, so a
   `Box` of any other formatter or logger implements nothing until that impl is added.
   `BufferFormatter` is also implemented for `Arc<T>` where `T: Sync`. The test files under
-  [src/tests/](src/tests/mod.rs) assert `Send`, `Unpin`, object safety and `Box` (`test_send`,
-  `test_unpin`, `test_trait_object_safety`, `test_box`) for every provided formatter, filter and
-  logger, plus `Arc` for the formatters (`test_arc`) and `Debug` for the filters (`test_debug`) —
-  keep those assertions passing when adding a new implementation.
+  [src/tests/](src/tests/mod.rs) assert `Send`, `Unpin`, object safety and `Box` (`send`,
+  `unpin`, `trait_object_safety`, `boxed`) for every provided formatter, filter and logger, plus
+  `Arc` for the formatters (`arc`) and `Debug` for the filters (`debug`), in each file's closing
+  *Trait assertions* section — keep those assertions passing when adding a new implementation.
 - **Adding a new formatter/filter/logger:** implement the trait, re-export it from
   [lib.rs](src/lib.rs), and mirror the existing test coverage (the assertions above, plus
   behavior) in that module's test file under `src/tests/`. `Box` support differs per trait: a
@@ -132,8 +132,15 @@ tests, docs, and the changelog.
     `dead_code` error under `cargo clippy --all-targets -- -D warnings` (plain `cargo clippy`
     never compiles the tests, so it passes), which is what flags an orphaned helper — don't
     silence it with `allow`.
-  - Tests are reported as `tests::<file>::<test>`, so `cargo test tests::filter` runs one file;
-    `tests::stream` also matches every `stream_*` file, `tests::stream::` only `stream.rs`.
+  - Name a test for the behavior it checks, without a `test_` prefix: tests are reported as
+    `tests::<file>::<test>`, which already says what they are (`box` is a keyword, so the `Box`
+    assertions are named `boxed`). So `cargo test tests::filter` runs one file; `tests::stream`
+    also matches every `stream_*` file, `tests::stream::` only `stream.rs`.
+  - Import library items through the crate-root re-exports (`use crate::EventKind;`), the paths
+    users write. Only an item lib.rs does not re-export, such as `crate::filter::EventFilterDebug`,
+    is imported by its module path.
+  - A file's trait-bound tests (`Send`, `Unpin`, object safety, `Box`, `Arc`, `Debug`) close it,
+    under a `Trait assertions` banner, after the file's own `assert_*` helpers if it has any.
   - `crate::tests` is outside the modules it tests, so it sees only what the crate root sees: an
     item private to its module is out of reach. Make such an item `pub(crate)` only when a test
     needs it, and say why in its doc comment, as `EventFilterDebug` does.
