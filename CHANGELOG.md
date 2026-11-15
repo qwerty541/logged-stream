@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Updated `tokio` from 1.53.1 to 1.54.1
+- Updated `log` from 0.4.34 to 0.4.35
 
 ## v0.8.0 (14.09.2026)
 
